@@ -1,7 +1,9 @@
-#!/bin/bash
+#!/usr/bin/bash
+#
 # Smoke test for Rails 5.0+
 #
 # ./test.sh [options]
+#
 #   -c  do not clean/init mock
 #	  -h 	print help
 #   -i  additionall install
@@ -120,3 +122,6 @@ do
 done
 
 #  "bundle config set path vendor" \
+
+ # TODO: use group install instead
+# mock "$@" -n -qi rubygem-{spring-watcher-listen,listen,rails,sqlite3,coffee-rails,sass-rails,uglifier,jquery-rails,turbolinks,jbuilder,therubyracer,sdoc,spring,byebug,web-console,io-console,bigdecimal} || die "Install failed"
