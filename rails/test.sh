@@ -2,7 +2,7 @@
 # Smoke test for Rails 5.0+
 #
 # test.sh [-h] [-c] [-s]
-#   -s  skip mock
+#   -s  skip scrubbing mock
 #   -c  do not scrub/clean/init mock
 #
 #   Note that order of arguments matter
