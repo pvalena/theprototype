@@ -8,22 +8,16 @@
 
  }
 
- FROM="5.0.0"
- INTO="5.0.0.1"
+ FROM="5.0.0.1"
+ INTO="5.0.1"
 
- mkdir tmp
+ mkdir -p tmp
  cd tmp || die "Could not cd to tmp"
 
  pwd
  ls
 
- bask "Remove all" && {
-  rm -vfr *
-
- } || {
-  bask "Continue" || exit 1
-
- }
+ rm -vir *
 
  echo ">" ; while read x; do
         echo " >> $x"

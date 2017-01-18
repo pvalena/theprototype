@@ -1,29 +1,64 @@
 #!/bin/bash
-# Update presence check
-# TODO: USAGE
+# Check for update commit with VERSION
+#
+# ./check.sh [BRANCH] VERSION
+#   Optionally input 'f*' as BRANCH as a first arg. Default is 'master'.
+#   Mandatory is VERSION which will be checked for.
+#
+#   Uses current working directory.
+#
+
+ die () {
+    echo "Error: $1!" 2>&1
+    exit 1
+
+ }
 
  [[ "${1:0:1}" == "f" ]] && { D="$1" ; shift ; } || D="master"
- [[ "$1" ]] || exit 1
+ [[ "$1" ]] || die "Arg missing"
 
- for x in railties rails activesupport activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
-        echo -e "\n >>> $x"
+for x in railties rails activesupport activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
+  G="rubygem-$x"
 
-        cd "rubygem-$x" || break
-                fnd=
+  [[ -d "$G" ]] || {
+    fedpkg co "$G" || die "Failed to checkout gem '$G'"
 
-                while read z; do
-                        grep " Update to ${x^} $1" <<< "$z" && fnd=y && break
-                        echo "$z"
+  }
 
-                done < <(git c $D &>/dev/null && git p &>/dev/null && git log --oneline -10)
+  cd "$G" || {
+    echo "Failed to cd '$G'" 2>&1
+    exit 1
 
-                [[ "$fnd" ]] || {
-                        echo "Update not found!" 2>&1
+  }
 
-                }
+    fnd=
+    grep '^acti' <<< "$x" &>/dev/null && {
+      N="`cut -c7- <<< "$x"`"
+      N="`cut -c-6 <<< "$x"` ${N^}"
 
-        cd ..
+    } || N="$x"
 
- done
+    N="${N^}"
 
- echo
+    echo -e "\n>>> $N"
+
+    T="Update to $N $1"
+
+    git f &>/dev/null || die "git f"
+
+    while read z; do
+      grep "$T" <<< "$z" && fnd=y && break
+      echo "$z"
+
+    done < <( git log --oneline -100 "origin/$D" )
+
+    [[ "$fnd" ]] || {
+      echo -e "\n !! Update commit for $1 not found !!"
+
+    }
+
+  cd .. || die "Failed to cd .."
+
+done
+
+echo
