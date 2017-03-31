@@ -1,25 +1,38 @@
 #!/bin/bash
 #
 # ./pelc.sh [-b VER] [-c] [-r RHL] [-w WID] SCL [SCL [...]]
+#   View package(s) licences and cryptography algorithms.
 #
-#   Compare package licences in upstream.
-#   Needs listpkgs.sh script in same directory.
+#   Uses various tools like licensecheck, licensee gem, gem,
+#   primitive .spec and .gemspec checks, oscryptocatcher,
+#   and puts their results in one 'table'.
+#
+# Requires:
+#   tools mentioned above
+#
+#   rhpkg(needs kinit)
+#
+#   custom scripts:
+#     ../scl/listpkgs.sh
+#     ../pkgs/download-builds.sh
+#
 #   Options need to supplied in alphabetical order
 #
 # Options:
-#   -b  VER   version of RH software collections
-#   -c        do a clone+pull+checkout+sources...
-#   -d        debug output
-#   -r  RHL   rhel version
-#   -w  WID   columnes width, starts \w #2, sep. by ','
+#     -b  VER   version of RH software collections
+#     -c        do a clone+pull+checkout+sources...
+#     -d        debug output
+#     -r  RHL   rhel version
+#     -w  WID   columnes width, starts \w #2, sep. by ','
 #
 # Defaults:
-#       VER   2.4
-#       RHL   7
-#       WID   30,30,40,30
+#     VER   2.4
+#     RHL   7
+#     WID   30,30,40,30
 #
-# Mandatory:
-#       SCL   name of collections; can be specified multiple times
+# Mandatory args:
+#     SCL   name of collections; can be specified multiple times
+#
 #
 #
 
@@ -64,8 +77,8 @@
  myd="$(readlink -e "`pwd`")"
  fst="$c" # runs `rhpkg co` checkout, git checkout etc. if set to nonempty
  w="0,$w,0"
- mylist="$(readlink -e "`dirname "$0"`/listpkgs.sh")"
- mydown="$(readlink -e "`dirname "$0"`/download-builds.sh")"
+ mylist="$(readlink -e "`dirname "$0"`/../scl/listpkgs.sh")"
+ mydown="$(readlink -e "`dirname "$0"`/../pkgs/download-builds.sh")"
 
  for i in {1..100}; do
   eval "w$i='`cut -d',' -f$i <<< "$w"`'"
