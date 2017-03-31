@@ -4,18 +4,18 @@
 # 2] Set VARIABLES
 #
 # Usage:
-# ./rup.sh [-c][-n]
+# ./upd.sh [-c][-n][-k][-c]
 #	-n	NO NOBUILD	          skip the test
 #	-l	NO LOCAL BUILD	      skip local builds
 #	-k	CONTINUE LOCAL BUILD	do not clean data for local build, implies '-n'
 #	-c	CONTINUE	            do not clean data, implies '-n' and '-l'
 #
 
- UPDATE_WHERE=26
+ UPDATE_WHERE=27
 
- FROM_VERSION="5.0.0.1"
+ FROM_VERSION="5.0.2"
 
- TO_VERSION="5.0.1"
+ TO_VERSION="5.1.0.rc1"
 
  RAILSBUILD_DIR="/mnt/rhelv/home/vagrant/Work/RH/rails/railsbuild"
 
@@ -119,7 +119,8 @@ done
 
 	ls | while read x; do
 	  cd "$X/$x" || die "cd '$X/$x' failed"
-	  git diff
+	  echo " > `pwd`"
+	  git status
 
 	done
 

@@ -8,8 +8,8 @@
 
  }
 
- FROM="5.0.0.1"
- INTO="5.0.1"
+ [[ "$1" ]] && FROM="$1" || FROM="5.0.1"
+ [[ "$2" ]] && INTO="$2" || INTO="5.0.2"
 
  mkdir -p tmp
  cd tmp || die "Could not cd to tmp"
@@ -17,9 +17,12 @@
  pwd
  ls
 
- rm -vir *
+ echo -n "Remove all? "
+ read R
 
- echo ">" ; while read x; do
+ [[ "$R" == "y" || "$R" == "Y" ]] && rm -vfr *
+
+ while read x; do
         echo " >> $x"
         gem compare -bk "$x" "$FROM" "$INTO"
         echo
@@ -32,4 +35,4 @@
       actionmailer
       actioncable
       railties
-      rails" | cut -d' ' -f2 | grep -vE "^$") ; echo "<"
+      rails" | cut -d' ' -f2 | grep -vE "^$")
