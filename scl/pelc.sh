@@ -65,6 +65,7 @@
  fst="$c" # runs `rhpkg co` checkout, git checkout etc. if set to nonempty
  w="0,$w,0"
  mylist="$(readlink -e "`dirname "$0"`/listpkgs.sh")"
+ mydown="$(readlink -e "`dirname "$0"`/download-builds.sh")"
 
  for i in {1..100}; do
   eval "w$i='`cut -d',' -f$i <<< "$w"`'"
@@ -72,6 +73,7 @@
  done
 
  [[ -x "$mylist" ]] || die 'No listpkgs.sh found: $mylist' nogit
+ [[ -x "$mydown" ]] || die 'No download-builds.sh found: $mydown' nogit
  [[ -n "$myd" && -d "$myd" ]] || die "Invalid working directory" nogit
 
 while [[ "$1" ]] ; do
@@ -118,7 +120,7 @@ while [[ "$1" ]] ; do
       rm *.gem &>/dev/null
       rm *.rpm &>/dev/null
       rhpkg sources &>/dev/null || die "failed to fetch sources"
-      /home/vagrant/Work/RH/git/scripts/pkgs/download-builds.sh -b -x "${scl}-$z" "el$r" &>/dev/null || err "failed to download RPMs"
+      $mydown -b -x "${scl}-$z" "el$r" &>/dev/null || err "failed to download RPMs"
 
     }
 
