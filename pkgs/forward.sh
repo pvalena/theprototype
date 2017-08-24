@@ -4,7 +4,7 @@
 #   Take ale git folders in current folder (depth 1), checkout to master
 #   and pull changes.
 #
-#   Prints out 'Uncommited changes' if working directory is not clean.
+#   Prints out 'Uncommited changes' if changes are made to files tracked by git.
 #   Otherwise gives you first line of last commit entry.
 #
 
@@ -35,7 +35,7 @@ while read G; do
   git stash &>/dev/null
   git checkout master &>/dev/null
   [[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || { error 'Failed to checkout master' ; continue ; }
-  git status | grep -q 'nothing to commit, working directory clean' || { error 'Uncommited changes' ; continue ; }
+  git status | grep -q 'nothing to commit (use -u to show untracked files)' || { error 'Uncommited changes' ; continue ; }
   git pull &>/dev/null || { error 'Pull failed' ; continue ; }
   git status | grep -q 'Your branch is up-to-date' || { error 'Failed to fast-forward' ; continue ; }
 
