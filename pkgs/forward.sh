@@ -35,7 +35,7 @@ while read G; do
   git stash &>/dev/null
   git checkout master &>/dev/null
   [[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || { error 'Failed to checkout master' ; continue ; }
-  git status | grep -q 'nothing to commit (use -u to show untracked files)' || { error 'Uncommited changes' ; continue ; }
+  git status -uno | grep -q 'nothing to commit (use -u to show untracked files)' || { error 'Uncommited changes' ; continue ; }
   git pull &>/dev/null || { error 'Pull failed' ; continue ; }
   git status | grep -q 'Your branch is up-to-date' || { error 'Failed to fast-forward' ; continue ; }
 
