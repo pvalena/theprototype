@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ./pelc.sh [-b VER] [-c] [-r RHL] [-w WID] SCL [SCL [...]]
+# ./pelc.sh [options] SCL [SCL [...]]
 #
 # Summary:
 #     View package(s) licences and cryptography algorithms.
@@ -48,6 +48,8 @@
 #
 # Ideas:
 #     - output csv format
+#     - Use https://github.com/nexB/scancode-toolkit
+#        ./scancode  --license --processes 2
 #
 #
 
@@ -55,7 +57,7 @@ stx () { [[ "$DEBUG" ]] || return 0 ; echo "set -x" ; }
 err () { `stx` ; printf " ! $x : $1\n" >&2 ; }
 die () { `stx` ; err "$1" ; [[ "$2" ]] || git status ; exit 1 ; }
 deb () { [[ "$DEBUG" ]] || return 0 ; echo -e " # $x : $@" ; }
-nam () { x="`grep -q '^rubygem-' <<< "$1" && cut -d'-' -f2- <<< "$1" || echo "$1"`" ; }
+nam () { x="`grep -q '^$pre' <<< "$1" && cut -d'-' -f2- <<< "$1" || echo "$1"`" ; }
 
 OUT=''
 w0=0
@@ -92,6 +94,8 @@ w="0,$w,0"
 mylist="$(readlink -e "`dirname "$0"`/../scl/listpkgs.sh")"
 mydown="$(readlink -e "`dirname "$0"`/../pkgs/download-builds.sh")"
 
+licensee &>/dev/null && isrhel= || isrhel='scl enable rh-ruby24 --'
+
 for i in {1..100}; do
   eval "w$i='`cut -d',' -f$i <<< "$w"`'"
 done
@@ -105,23 +109,27 @@ while [[ "$1" ]] ; do
   bra="rhscl-${b}-${scl}-rhel-${r}"
   x='unknown'
 
-  deb "bra = '$bra'"
+  T=
+  [[ "$g" ]] && { T="gemspec" ; pre='rubygem-' ; }
+  [[ "$p" ]] && { T="???" ; pre='???-' ; }          #//<<< INPUT
 
-  lst="$($mylist ${bra}-build ${scl}- | grep '^rubygem-')"
+  [[ "$T" ]] || die 'No package type specified'
+
+  deb "bra = '$bra'"
+  deb "pre = '$pre'"
+  deb "$mylist ${bra}-build ${scl}-"
+
+  lst="$(`stx` ; $mylist ${bra}-build ${scl}-)"
+
+  [[ -z "$lst" ]] && die "failed to list packages for '$scl'"
+
+  deb "lst = >>>\n$lst\n<<<\n"
 
   while read z; do
     nam "$z"
     wx="${#x}"
     [[ $wx -gt $w1 ]] && w1=$wx
   done <<< "$lst"
-
-  deb "lst = >>>\n$lst\n<<<\n"
-
-  T=
-  [[ "$g" ]] && T="gemspec"
-  [[ "$p" ]] && T="???"          #//<<< INPUT
-
-  [[ "$T" ]] || die 'No package type specified'
 
   # padding for T
   Tp=$(printf "%-${#T}s" -)
@@ -139,7 +147,7 @@ while [[ "$1" ]] ; do
     cd "$myd" || die "Failed to cd '$myd'" nogit
 
     [[ -z "$fst" || -d "$z" ]] || { rhpkg co "$z" &>/dev/null ; }
-    [[ -d "$z" ]] || die "directory '$z' missing" nogit
+    [[ -d "$z" ]] || die "distgit directory '$z' not found" nogit
     cd "$z" || die "failed to cd '$z'" nogit
 
     deb "`pwd`"
@@ -202,8 +210,9 @@ while [[ "$1" ]] ; do
 
     # type: ???                                 #//<<< INPUT: \
     [[ "$p" ]] && {
+      die NYI
       p="`ls ${x}-*.??? 2>/dev/null`"
-      [[ -n "$p" && -r "$p" ]] || { err "gem file '$p' missing(not a rubygem?)" ; continue ; }
+      [[ -n "$p" && -r "$p" ]] || { err "gem file '$p' missing(?)" ; continue ; }
 
       b="`basename -s '.gem' "$p"`"
       [[ "$b" ]] || die "invalid gem file '$p'"
@@ -246,7 +255,7 @@ while [[ "$1" ]] ; do
 
     JSF=
     while read j; do JSF="$JSF & $j" ; done < <(
-      scl enable rh-ruby24 -- licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
+      $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
     )
     out "`cut -d' ' -f3- <<< "$JSF"`"
 
