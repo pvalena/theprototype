@@ -4,7 +4,7 @@
 #   perform search for packages named PACKAGE(regexp)
 #   and download all latest corresponding builds for DIST(f.e.: fc24 el7)
 #
-#  Specific options order is required!
+#  !!! Specific options order is required !!!
 #
 # Options:
 #   -d    debug mode
@@ -16,41 +16,51 @@
 die () {
   echo "Error: $@!" >&2
   exit 1
-
 }
 
- [[ "$1" == "-d" ]] && { DEBUG=y ; shift ; } || DEBUG=
- [[ "$1" == "-b" ]] && { tool="brew" ; shift ; } || tool=koji
- [[ "$1" == "-x" ]] && { E="$1" ; shift ; } || E=
+[[ "$1" == "-d" ]] && { DEBUG=y ; shift ; } || DEBUG=
+[[ "$1" == "-b" ]] && { tool='brew' ; shift ; } || tool='koji'
+[[ "$1" == "-x" ]] && { E="$1" ; shift ; } || E=
 
- [[ "$1" ]] || die "Arg 'package' Missing"
- [[ "$2" ]] || die "Arg 'dist' Missing"
+[[ "$1" ]] || die "Arg 'package' Missing"
+[[ "$2" ]] || die "Arg 'dist' Missing"
 
- PKG="$1"
+PKG="$1"
 
- shift
+shift
 
 [[ "$E" ]] && GS="$PKG" || GS="`$tool search package "$PKG"`"
 
 while read P; do
-for A in "$@"; do
-  X="`$tool search build -r "^$P\-[0-9]" 2>/dev/null | grep "\.$A$" | sort -r | head -1`" || echo "$P:$A > search failed"
-  [[ "$DEBUG" ]] && debug "`$tool search build -r "^$P\-[0-9]" 2>/dev/null`"
+  for A in "$@"; do
+    [[ "$DEBUG" ]] && {
+      set -x
+      $tool search build -r "^$P\-[0-9]"
+      { set +x ; } &>/dev/null
+    }
 
-  [[ -n "$X" ]] && {
+    X="`$tool search build -r "^$P\-[0-9]" 2>/dev/null | grep "\.$A$" | tail -n -1`" || echo "$P:$A > search failed"
+    [[ -z "$X" ]] && echo "$P:$A > no build found" && continue
+
     c=0
     S=
-    while [[ $c -lt 100 ]] ; do
+    while [[ $c -lt 3 ]] ; do
       let 'c += 1'
-      set -x
-      $tool download-build -q -a noarch -a x86_64 "$X" && S=Y && break
-      set +x
+
+      [[ "$DEBUG" ]] && set -x
+      $tool download-build -q -a noarch -a x86_64 "$X"
+      R=$?
+      { set +x ; } &>/dev/null
+
+      [[ $R -eq 0 ]] && S=Y && break
 
     done
 
-    [[ "$S" ]] || echo "$P:$A > download failed: $X"
+    [[ -z "$S" ]] && echo "$P:$A > download failed: $X" && continue
 
-  }
+    O="`ls *.rpm | grep "^$X"`"
+    [[ -n "$O" ]] || echo "$P:$A > no file found: ^$X*.rpm"
 
-done
+    echo "$O"
+  done
 done <<< "$GS"
