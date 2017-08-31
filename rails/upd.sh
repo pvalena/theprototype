@@ -5,19 +5,19 @@
 #
 # Usage:
 # ./upd.sh [-c][-n][-k][-c]
-#	-n	NO NOBUILD	          skip the test
-#	-l	NO LOCAL BUILD	      skip local builds
-#	-k	CONTINUE LOCAL BUILD	do not clean data for local build, implies '-n'
-#	-c	CONTINUE	            do not clean data, implies '-n' and '-l'
+#	  -n	skip nobuild test
+#	  -l	skip local builds
+#	  -k	continue local build (do not clean data for local build, implies '-n')
+#	  -c	continue real build (do not clean data, implies '-n' and '-l')
 #
 
  UPDATE_WHERE=27
 
- FROM_VERSION="5.0.2"
+ FROM_VERSION="5.1.2"
 
- TO_VERSION="5.1.0.rc1"
+ TO_VERSION="5.1.3"
 
- RAILSBUILD_DIR="/mnt/rhelv/home/vagrant/Work/RH/rails/railsbuild"
+ RAILSBUILD_DIR="$(readlink -e "`dirname "$0"`/../../../../rails/railsbuild/")"
 
 
 ################################
@@ -132,7 +132,7 @@ done
 
  }
 
- bask "Run real build" || uxit
+ bask "Run *REAL* build (this deletes '~/.railsbuild')!" || uxit
 
  echo " >>> Running build <<< "
 
