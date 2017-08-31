@@ -17,11 +17,15 @@
  [[ "${1:0:1}" == "f" ]] && { D="$1" ; shift ; } || D="master"
  [[ "$1" ]] || die "Arg missing"
 
+ my="$(readlink -e "`pwd`")"
+
+ [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
+
 for x in railties rails activesupport activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
   G="rubygem-$x"
 
   [[ -d "$G" ]] || {
-    fedpkg co "$G" || die "Failed to checkout gem '$G'"
+    fedpkg co "$G" &>/dev/null || die "Failed to checkout gem '$G'"
 
   }
 
@@ -30,6 +34,13 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
     exit 1
 
   }
+
+  #git stash &>/dev/null
+  #git checkout master &>/dev/null
+  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
+  #git status | grep -q 'nothing to commit, working directory clean' || die 'Uncommited changes'
+  #git pull &>/dev/null || die 'Pull failed'
+  #git status | grep -q 'Your branch is up-to-date' || die 'Failed to fast-forward'
 
     fnd=
     grep '^acti' <<< "$x" &>/dev/null && {
@@ -44,7 +55,7 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
 
     T="Update to $N $1"
 
-    git f &>/dev/null || die "git f"
+    git fetch &>/dev/null || die "git fetch failed"
 
     while read z; do
       grep "$T" <<< "$z" && fnd=y && break
@@ -53,11 +64,11 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
     done < <( git log --oneline -100 "origin/$D" )
 
     [[ "$fnd" ]] || {
-      echo -e "\n !! Update commit for $1 not found !!"
+      echo -e "\n !! Update commit for $x not found !!"
 
     }
 
-  cd .. || die "Failed to cd .."
+  cd "$my" || die "Failed to cd to '$my'"
 
 done
 
