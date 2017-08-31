@@ -1,17 +1,20 @@
 #!/bin/bash
 # Smoke test for Rails 5.0+
 #
-# test.sh [-h] [-d] [-t] [-c] [-s]
-#	  -h 	print help
-#	  -d 	debug mode
-#   -t  enables repo 'updates-testing'
+# test.sh [options]
 #   -c  do not scrub/clean/init mock
-#   -s  skip scrubbing mock
+#	  -h 	print help
+#   -i  additionall install
+#   -n  no comps install
+#   -s  start anew = scrub mock
+#   -t  enables repo 'updates-testing'
 #
-#   Note that order of options matter.
+#   Options have to be specified in alphabetical order!
 #
-#   All other args will be passed to mock, e.g.:
+#   All other args will be passed to mock(specify '--' to force delimeter), e.g.:
 #   -r  mock-config-x86_64.cfg
+#   -v
+#   -q
 #
 
 die () {
@@ -37,26 +40,51 @@ usage () {
 
 }
 
- [[ '-h' == "$1" ]] && usage
+[[ '-c' == "$1" ]] && {
+  C="$1"
+  shift
+} || C=
 
- [[ '-d' == "$1" ]] && { Q= ; shift ; } || Q='-q'
+[[ '-h' == "$1" ]] && usage
 
- [[ '-t' == "$1" ]] && { shift ; T='--enablerepo=updates-testing' ; } || T=
+[[ '-i' == "$1" ]] && {
+  shift
+  I="$1"
+  shift
+} || I=
 
-[[ '-c' == "$1" ]] && shift || {
-  [[ '-s' == "$1" ]] && shift || mock "$@" $Q $T --scrub=all
+[[ '-n' == "$1" ]] && { N="$1" ; shift ; } || N=
 
-  mock "$@" $Q $T --clean && mock "$@" $Q $T --init || die "Init/clean failed"
+[[ '-s' == "$1" ]] && { S="$1" ; shift ; } || S=
 
-}
+[[ '-t' == "$1" ]] && { shift ; T='--enablerepo=updates-testing' ; } || T=
+
+[[ '--' == "$1" ]] && shift
 
  #echo rubygem-{spring-watcher-listen,listen,rails,sqlite3,coffee-rails,sass-rails,uglifier,jquery-rails,turbolinks,jbuilder,therubyracer,sdoc,spring,byebug,web-console,io-console,bigdecimal} \
  # | xargs -n1 mock "$@" -n -qi
 
- mock "$@" -n $Q $T --pm-cmd group install 'Ruby on Rails' || die 'group install failed'
+[[ "$d" ]] && set -x
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && rails new app --skip-bundle" || die "rails new failed"
+[[ "$S" ]] && mock "$@" $Q $T --scrub=all
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i \"/'puma'/,/'therubyracer'/ s/^/# /\" Gemfile && sed -i \"/'listen'/ s/'~> 3.0.5'/'~> 3.1.5'/\" Gemfile" || die "Gemfile edits failed"
+[[ "$C" ]] || {
+  mock "$@" $Q $T --clean || die 'Clean failed'
+  mock "$@" $Q $T --init || die "Init failed"
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && rails s" || die "rails s failed"
+}
+
+[[ "$N" ]] || {
+  mock "$@" -n $Q $T --pm-cmd group install 'Ruby on Rails' || die 'group install failed'
+
+}
+
+ [[ "$I" ]] && mock "$@" -n $Q $T -i $I || die 'additional install failed'
+
+ mock "$@" -n $Q $T --unpriv --chroot "cd && rm -rf app/"
+
+ mock "$@" -n $Q $T --unpriv --chroot "cd && yes | rails new app --skip-bundle" || die "rails new failed"
+
+ #mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i \"/'puma'/,/'therubyracer'/ s/^/# /\" Gemfile && sed -i \"/'listen'/ s/'~> 3.0.5'/'~> 3.1.5'/\" Gemfile" || die "Gemfile edits failed"
+
+ mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && rails s"
