@@ -1,0 +1,121 @@
+#!/bin/bash
+# mockshell [-h] [-a] [-c] [-i PROG] [SUF]
+# Runs the shell in specified mock environment. Also installs nano and sets root password to 'mock'.
+# Optionally can detect correct mock config via current git branch.
+# Requires awk (help), and mock :)
+
+ usage () {
+	awk '{if(NR>1)print;if(NF==0)exit(0)}' < "$0" | sed '
+		s|^#[ 	]||
+		s|^#$||
+	' | ${PAGER-more}
+
+	exit 0
+
+ }
+
+ checkhelp () {
+	[[ "${1:0:1}" == "-" ]] && {
+		case "${1:1:1}" in
+			[hH])
+				usage
+				;;
+
+		esac
+
+		case "$1" in
+			--[hH][eE][lL][pP])
+				usage
+				;;
+
+		esac
+
+	}
+
+ }
+
+ die () {
+	local ERR
+
+	[[ "$1" ]] && ERR="$1" || ERR="Unknown"
+
+	ERR="Error: $ERR!"
+
+	POPUP=$T
+
+	echo "$ERR" 1>&2
+
+	exit 1
+
+ }
+
+ ##
+
+ checkhelp "$1"
+
+ CHRCMD="echo root:mock | /usr/sbin/chpasswd"
+
+ cleanmock () {
+   mock "$@" -q --clean || die "Failed to clean"
+   mock "$@" -q --init || die "Failed to init"
+
+ }
+
+ [[ "$1" == "-a" ]] && { shift ; AUT=y ; } || AUT=
+
+ [[ "$1" == "-c" ]] && {
+   CONT=y
+   shift
+
+ } || CONT=
+
+ [[ "$1" == "-i" ]] && {
+   shift
+   INST="$1"
+   shift
+
+ } || INST=
+
+ [[ "$AUT" ]] && {
+   shift
+
+   b="`git rev-parse --abbrev-ref HEAD`" || die "Could not get branch (1)"
+   [[ "$b" ]] || die "Could not get branch (2)"
+
+   [[ "`grep "^private-" <<< "$b"`" ]] && b="`cut -d'-' -f2- <<< "$b"`"
+   [[ "$b" ]] || die "Invalid branch (1)"
+
+   r="$b-x86_64"
+   [[ "$1" ]] && r="${r}-$1"
+
+   ls "/etc/mock/$r.cfg" 1>/dev/null || die "Invalid branch (2)"
+
+   echo "--> $r"
+
+   [[ "$CONT" ]] || cleanmock -r "$r"
+
+   mock -qi nano $INST -r "$r" "$@" || die "Failed to install (1)"
+
+   mock -q --chroot "$CHRCMD" -r "$r" "$@" || die "Failed to chroot (1)"
+
+   exec mock -r "$r" "$@" -q --shell --unpriv
+
+ }
+
+ [[ "${1:0:1}" == "-" || -z "$1" ]] && r="" || {
+   b="$1"
+   grep '\-x86_64$' <<< "$b" &>/dev/null || b="$b-x86_64"
+
+   r="-r '$b'"
+
+   shift
+
+ }
+
+ [[ "$CONT" ]] || cleanmock $r "$@"
+
+ mock $r "$@" -qi nano $INST || die "Failed to install (2)"
+
+ mock $r "$@" -q --chroot "$CHRCMD" || die "Failed to chroot (2)"
+
+ exec mock $r "$@" -q --shell --unpriv

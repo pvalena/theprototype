@@ -1,0 +1,78 @@
+#!/bin/bash
+
+  . lpcsbclass
+
+ [[ "$1" == "-a" ]] && { shift ; AUT=y ; } || AUT=
+
+ [[ "$1" == "--rhel" ]] && {
+ 	 DST=rh
+ 	 shift
+
+ } || DST=fed
+
+ [[ "${1:0:2}" == "--" ]] && {
+	X="$1 $2"
+ 	shift
+	shift
+
+ } || X=
+
+ [[ "$1" == "-c" ]] && {
+	CONT="y"
+	shift
+
+ } || CONT=
+
+ [[ "$AUT" ]] && {
+   b="`git rev-parse --abbrev-ref HEAD`" || die "Could not get branch (1)"
+   [[ "$b" ]] || die "Could not get branch (2)"
+
+   [[ "`grep "^private-" <<< "$b"`" ]] && b="`cut -d'-' -f2- <<< "$b"`"
+   [[ "$b" ]] || die "Invalid branch (1)"
+
+   [[ "`grep "^rhel" <<< "$b"`" || "`grep "^rhscl" <<< "$b"`" || "$DST" == "rh" ]] && RH="--rhel" || RH=
+
+   r="$b-x86_64"
+   [[ "$1" ]] && r="${r}-$1"
+
+   echo "--> $r"
+
+   ls "/etc/mock/$r.cfg" 1>/dev/null || die "Invalid branch (2)"
+
+   [[ "$CONT" ]] || { $0 $RH $X -r "$r" "$@" ; }
+
+   exec cloop "$0 $RH $X -c -r $r `serialize "$@"`"
+
+ }
+
+ ls *.spec &>/dev/null || die "Spec file not found"
+
+ rm -f *.src.rpm &>/dev/null
+
+ ${DST}pkg $X srpm || die "Failed to create srpm"
+
+ ls *.src.rpm &>/dev/null || die "No SRPM found to build"
+
+ [[ "$CONT" ]] || {
+	sudo mock "$@" -q --clean || die "Failed to clean"
+ 	sudo mock "$@" -qn --init || die "Failed to init"
+
+ }
+
+ rm -rf result/ &>/dev/null
+
+ echo ">>>"
+ date -I'ns'
+
+ sudo mock "$@" -vn --resultdir="`pwd`/result" *.src.rpm || die "Failed to build"
+
+ date -I'ns'
+ echo "<<<"
+
+ rm -f result/*.src.rpm || die "Failed to rm result/srpm"
+
+ ls result/*.rpm &>/dev/null || die "No RPM found to install"
+
+ sudo mock "$@" -vni result/*.rpm || die "Failed to install"
+
+ exec rpmlint -i *.spec result/*.rpm *.src.rpm || die "Rpmlint failed"
