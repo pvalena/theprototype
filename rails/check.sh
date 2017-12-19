@@ -32,7 +32,6 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
   cd "$G" || {
     echo "Failed to cd '$G'" 2>&1
     exit 1
-
   }
 
   #git stash &>/dev/null
