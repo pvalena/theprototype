@@ -28,16 +28,18 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
     exit 1
   }
 
-    fnd=
-    grep '^acti' <<< "$x" &>/dev/null && {
-      N="`cut -c7- <<< "$x"`"
-      N="`cut -c-6 <<< "$x"` ${N^}"
+  fnd=
+  grep '^acti' <<< "$x" &>/dev/null && {
+    N="`cut -c7- <<< "$x"`"
+    N="`cut -c-6 <<< "$x"` ${N^}"
+  } || N="$x"
 
-    } || N="$x"
+  N="${N^}"
+  echo -e "\n>>> $N"
 
-    N="${N^}"
-
-    echo -e "\n>>> $N"
+  for f in .bootstrapped .{,scratch-}built result; do
+    rm -rf "$f"
+  done
 
   git stash &>/dev/null
   git checkout master &>/dev/null

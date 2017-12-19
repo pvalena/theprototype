@@ -11,14 +11,7 @@
 #	  -c	continue real build (do not clean data, implies '-n' and '-l')
 #
 
- UPDATE_WHERE=27
-
- FROM_VERSION="5.1.2"
-
- TO_VERSION="5.1.3"
-
  RAILSBUILD_DIR="$(readlink -e "`dirname "$0"`/../../../../rails/railsbuild/")"
-
 
 ################################
 
@@ -65,7 +58,13 @@ while [[ "${1:0:1}" == '-' && "${1:2:1}" == '' ]]; do
   shift
 done
 
- [[ "$1" ]] && die "Failed to parse arg: '$1'"
+ FROM_VERSION="${1:-5.1.2}"
+
+ TO_VERSION="${2:-5.1.3}"
+
+ UPDATE_WHERE="${3:-28}"
+
+ [[ "$4" ]] && die "Redundant arg: '$4'"
 
  cd "$(dirname "`readlink -e "$0"`")" || die "Failed to cd"
 

@@ -1,33 +1,29 @@
 #!/bin/bash
 # Smoke test for Rails 5.0+
 #
-# test.sh [options]
-#   -c  do not scrub/clean/init mock
+# ./test.sh [options]
+#   -c  do not clean/init mock
 #	  -h 	print help
 #   -i  additionall install
 #   -n  no comps install
 #   -s  start anew = scrub mock
 #   -t  enables repo 'updates-testing'
 #
-#   Options have to be specified in alphabetical order!
+# !!! Options have to be specified in alphabetical order !!!
 #
-#   All other args will be passed to mock(specify '--' to force delimeter), e.g.:
-#   -r  mock-config-x86_64.cfg
-#   -v
-#   -q
+# All other args will be passed to mock(specify '--' to force delimeter), e.g.:
+#     -r  mock-config-x86_64.cfg
+#     -v
+#     -q
 #
 
 die () {
   local ERR
-
   [[ "$1" ]] && ERR="$1" || ERR="Unknown"
 
   ERR="Error: $ERR!"
-
   echo "$ERR" 1>&2
-
   exit 1
-
 }
 
 usage () {
@@ -37,7 +33,6 @@ usage () {
   ' | ${PAGER-more}
 
   exit 0
-
 }
 
 [[ '-c' == "$1" ]] && {
@@ -65,13 +60,11 @@ usage () {
  # | xargs -n1 mock "$@" -n -qi
 
 [[ "$d" ]] && set -x
-
 [[ "$S" ]] && mock "$@" $Q $T --scrub=all
 
 [[ "$C" ]] || {
   mock "$@" $Q $T --clean || die 'Clean failed'
   mock "$@" $Q $T --init || die "Init failed"
-
 }
 
 [[ "$N" ]] || {
@@ -79,12 +72,14 @@ usage () {
 
 }
 
- [[ "$I" ]] && mock "$@" -n $Q $T -i $I || die 'additional install failed'
+[[ -n "$I" ]] && {
+  mock "$@" -n $Q $T -i $I || die 'additional install failed'
+}
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && rm -rf app/"
+mock "$@" -n $Q $T --unpriv --chroot "cd && rm -rf app/"
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && yes | rails new app --skip-bundle" || die "rails new failed"
+mock "$@" -n $Q $T --unpriv --chroot "cd && yes | rails new app --skip-bundle" || die "rails new failed"
 
- #mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i \"/'puma'/,/'therubyracer'/ s/^/# /\" Gemfile && sed -i \"/'listen'/ s/'~> 3.0.5'/'~> 3.1.5'/\" Gemfile" || die "Gemfile edits failed"
+#mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i \"/'puma'/,/'therubyracer'/ s/^/# /\" Gemfile && sed -i \"/'listen'/ s/'~> 3.0.5'/'~> 3.1.5'/\" Gemfile" || die "Gemfile edits failed"
 
- mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && rails s"
+mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && rails s"
