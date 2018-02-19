@@ -131,6 +131,9 @@ done
 
  }
 
+echo " >>> To run real build use rebuild.sh <<< "
+exit 0
+
  bask "Run *REAL* build (this deletes '~/.railsbuild')!" || uxit
 
  echo " >>> Running build <<< "
