@@ -10,7 +10,8 @@
 #   Options are expected in an alphabetical order.
 #
 # Arguments:
-#   TAG     brew tag, f.e. rhscl-2.2-rhel-7-candidate
+#   TAG     brew tag, f.e.: rhscl-2.2-rhel-7-candidate
+#                           rhscl-3.1-rh-ruby23-rhel-6-build
 #   PREFIX  prefix to filter by, f.e. scl name with trailing '-',
 #           like 'rh-ruby23-'
 #
