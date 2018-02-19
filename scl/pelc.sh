@@ -33,7 +33,7 @@
 #     -w  WID   columnes width, starts \w #2, sep. by ','
 #
 # Defaults for options:
-#     VER   3.0
+#     VER   3.1
 #     RHL   7
 #     WID   30,30,40,30
 #
@@ -78,7 +78,7 @@ out () {
   done
 }
 
-[[ "$1" == "-b" ]] && { shift ; b="$1" ; shift ; } || b='3.0'
+[[ "$1" == "-b" ]] && { shift ; b="$1" ; shift ; } || b='3.1'
 [[ "$1" == "-c" ]] && { c='yes' ; shift ; } || c=
 [[ "$1" == "-d" ]] && { DEBUG="$1" ; shift ; } || DEBUG=
 [[ "$1" == "-g" ]] && { shift ; g="$1" ; } || g=
