@@ -81,7 +81,7 @@ out () {
 [[ "$1" == "-b" ]] && { shift ; b="$1" ; shift ; } || b='3.1'
 [[ "$1" == "-c" ]] && { c='yes' ; shift ; } || c=
 [[ "$1" == "-d" ]] && { DEBUG="$1" ; shift ; } || DEBUG=
-[[ "$1" == "-g" ]] && { shift ; g="$1" ; } || g=
+[[ "$1" == "-g" ]] && { shift ; TG="$1" ; } || TG=
 [[ "$1" == "-p" ]] && { shift ; p="$1" ; } || p=
 [[ "$1" == "-r" ]] && { shift ; r="$1" ; shift ; } || r=7
 [[ "$1" == "-w" ]] && { shift ; w="$1" ; shift ; } || w=30,30,40,30
@@ -110,16 +110,16 @@ while [[ "$1" ]] ; do
   x='unknown'
 
   T=
-  [[ "$g" ]] && { T="gemspec" ; pre='rubygem-' ; }
+  [[ "$TG" ]] && { T="gemspec" ; pre='rubygem-' ; }
   [[ "$p" ]] && { T="???" ; pre='???-' ; }          #//<<< INPUT
 
   [[ "$T" ]] || die 'No package type specified'
 
   deb "bra = '$bra'"
   deb "pre = '$pre'"
-  deb "$mylist ${bra}-build ${scl}-"
+  deb "$mylist ${bra}-build ${scl}- | grep -v '^docker$'"
 
-  lst="$(`stx` ; $mylist ${bra}-build ${scl}-)"
+  lst="$(`stx` ; $mylist ${bra}-build ${scl}- | grep -v '^docker$')"
 
   [[ -z "$lst" ]] && die "failed to list packages for '$scl'"
 
@@ -155,6 +155,7 @@ while [[ "$1" ]] ; do
     [[ "$fst" ]] && {
       `stx`
       git fetch &>/dev/null || die "failed to fetch"
+      rhpkg switch-branch "$bra" &>/dev/null || die "failed to rhpkg switch-branch '$bra'"
       git checkout "$bra" &>/dev/null || die "failed to checkout '$bra'"
       git pull &>/dev/null || die "failed to pull"
       rm *.gem &>/dev/null
@@ -177,8 +178,9 @@ while [[ "$1" ]] ; do
     d=
 
     # type: gem
-    [[ "$g" ]] && {
-      g="`ls ${x}-*.gem 2>/dev/null`"
+    [[ "$TG" ]] && {
+      y="`cut -d'-' -f2- <<< "$x"`"
+      g="`ls ${y}-*.gem 2>/dev/null`"
       [[ -n "$g" && -r "$g" ]] || { err "gem file '$g' missing(not a rubygem?)" ; continue ; }
 
       b="`basename -s '.gem' "$g"`"

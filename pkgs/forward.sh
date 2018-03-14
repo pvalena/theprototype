@@ -40,6 +40,6 @@ while read G; do
   git status | grep -q 'Your branch is up-to-date' || { error 'Failed to fast-forward' ; continue ; }
 
   echo "Ok        `git log --oneline -1 | grep -v '^$' | cut -d' ' -f2-`"
-done < <( ls )
+done < <( ls -d )
 
 echo
