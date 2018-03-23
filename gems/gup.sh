@@ -70,11 +70,32 @@ ask () {
 
  [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
 
- ls | grep -E "\.($EXT)$" | xargs -i echo ">>> fedpkg new-sources {}"
+[[ -d "$nam/" ]] && {
+ echo
+ ls "$nam/" || die "Failed to list '$nam/'"
+ ask 'Remove directory'
+ rm -rf "$nam/" || die "Failed to remove '$nam/'"
+}
 
  M="Update to $nam ${ver}."
  rpmdev-bumpspec -c "$M" -n "$ver" *.spec || die "Failed to bump spec with version '$ver' and message '$M'"
- git commit -am "$M" || die "Failed to commit with message '$M'"
+
+ gcom=' (tar|git|cp|mv|cd) '
+ grep -A 5 ' git clone ' *.spec | grep '^#' |  grep -E "$gcom" \
+    | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/\" *.spec"
+
+ cmd=$( grep -A 3 '^# git clone ' *.spec | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
+    | xargs -i echo "set -x ; {}echo Ok || exit 1" )
+# TODO: move the *-tests source -> ..
+
+ echo
+ echo "\$cmd: $cmd"
+ ask 'execute $cmd'
+ bash -c "$cmd" || die 'Failed to execute $cmd'
+
+for x in `spectool -A *.spec | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
+  echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
+done > sources
 
  echo
  gem compare -bk "$nam" "$ov" "$ver"
@@ -83,6 +104,8 @@ ask () {
  echo
  git status
  ask 'Continue'
+
+ git commit -am "$M" || die "Failed to commit with message '$M'"
 
  echo
  git show
