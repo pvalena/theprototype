@@ -3,8 +3,6 @@
 EXT="gz|tgz|xz|gem"
 
 die () {
-  echo
-  git status
   echo "--> Error: $1!" 2>&1
   exit 1
 }
@@ -17,7 +15,7 @@ clean () {
 
 ask () {
   echo
-  read -n1 -p "$@" x
+  read -n1 -p ">> $@? " x
   grep -qi '^y' <<< "${x}" || die 'User quit'
   clear
   return 0
@@ -29,7 +27,7 @@ ask () {
 	FED="$1"
 	shift
 
-} || FED=28 # <<<<<<<<<<<<<<<
+} || FED=29 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-v" ]] && {
   shift
@@ -40,10 +38,12 @@ ask () {
 
  clean
  git fetch || die 'Failed to fetch git'
- git status
+ git diff
  git log -p
+ echo
+ git status
+ ask 'Reset repository'
 
- ask 'Reset repository? '
  git stash || die 'Failed to stash git'
  git reset --hard origin/master || die 'Failed to reset git'
 
@@ -72,17 +72,21 @@ ask () {
 
  ls | grep -E "\.($EXT)$" | xargs -i echo ">>> fedpkg new-sources {}"
 
- M="Update to ${ver}."
+ M="Update to $nam ${ver}."
  rpmdev-bumpspec -c "$M" -n "$ver" *.spec || die "Failed to bump spec with version '$ver' and message '$M'"
  git commit -am "$M" || die "Failed to commit with message '$M'"
 
  echo
  gem compare -bk "$nam" "$ov" "$ver"
+ ask 'Continue'
+
  echo
  git status
+ ask 'Continue'
+
  echo
  git show
- ask 'Run review? '
+ ask 'Run review'
 
  fedpkg srpm || die 'New fedpkg srpm failed'
 
@@ -90,4 +94,4 @@ ask () {
  [[ -n "$rev" && -x "$rev" ]] || die "Invalid review script: '$rev'"
 
  clear
- exec "$rev"
+ exec "$rev" -f
