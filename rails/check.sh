@@ -21,7 +21,7 @@
 
  [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
 
-for x in railties rails activesupport activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
+for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
   G="rubygem-$x"
 
   [[ -d "$G" ]] || {
