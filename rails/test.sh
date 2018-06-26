@@ -17,6 +17,12 @@
 #     -q
 #
 
+bash -n "$0" || exit 1
+
+trap 'kill 0 ; exit 0' SIGTERM
+trap 'kill 0 ; exit 0' SIGINT
+trap 'kill 0 ; exit 0' SIGABRT
+
 die () {
   local ERR
   [[ "$1" ]] && ERR="$1" || ERR="Unknown"
@@ -69,7 +75,6 @@ usage () {
 
 [[ "$N" ]] || {
   mock "$@" -n $Q $T --pm-cmd group install 'Ruby on Rails' || die 'group install failed'
-
 }
 
 [[ -n "$I" ]] && {
@@ -80,6 +85,6 @@ mock "$@" -n $Q $T --unpriv --chroot "cd && rm -rf app/"
 
 mock "$@" -n $Q $T --unpriv --chroot "cd && yes | rails new app --skip-bundle" || die "rails new failed"
 
-#mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i \"/'puma'/,/'therubyracer'/ s/^/# /\" Gemfile && sed -i \"/'listen'/ s/'~> 3.0.5'/'~> 3.1.5'/\" Gemfile" || die "Gemfile edits failed"
+mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i '/chromedriver-helper/ s/^/#/g' Gemfile" || die "Gemfile edits failed"
 
-mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && rails s"
+mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && { ( rails s | tee -a railss.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | head -30 | grep '<title>Ruby on Rails</title>' && echo OK && exit 0 ; } ; exit 1" || die '`rails server` failed'
