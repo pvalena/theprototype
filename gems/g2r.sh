@@ -1,92 +1,82 @@
 #!/bin/bash
 
-  . lpcsbclass
+ . lpcsbclass
 
- [[ "$1" == "-v" ]] && {
-	VER="$1"
+[[ "$1" == "-v" ]] && {
+  VER="$1"
+  shift
+} || VER=
+
+[[ "$1" == "-g" ]] && {
+  G2R="$1"
 	shift
+} || G2R=
 
- } || VER=
+[[ "$1" == "-f" ]] && {
+  FAST="$1"
+  shift
+} || FAST=
 
- [[ "$1" == "-g" ]] && {
-	G2R="$1"
-	shift
+[[ "$1" == "-k" ]] && {
+  KEEP="$1"
+  shift
+} || KEEP=
 
- } || G2R=
+[[ "$1" == "-e" ]] && {
+  FED="$1"
+  shift
+} || FED=29 # <<<<<<<<<<<<<<<
 
- [[ "$1" == "-f" ]] && {
-	FAST="$1"
-	shift
+[[ "$1" ]] || die "arg"
 
- } || FAST=
+[[ "$1" == "-r" ]] && {
+  REV="$1"
+  shift
+  [[ "$1" ]] || die "arg rev"
+} || {
+  mkdir -p "$1" || die "mkd"
 
- [[ "$1" == "-e" ]] && {
-	FED="$1"
-	shift
+  cd "$1" || die "cd"
 
- } || FED=29 # <<<<<<<<<<<<<<<
+  [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
 
- [[ "$1" ]] || die "arg"
+  gem fetch "$1" || die "fetch"
+  REV=
+}
 
- REV=y
+f="`ls *.gem`"
+f="`basename -s ".gem" "$f"`"
+[[ -r "$f.gem" ]] || die "fle"
 
- [[ "$1" == "-r" ]] && {
-	shift
-	[[ "$1" ]] || die "arg rev"
+gem unpack "$f.gem" || die "unpack"
 
- } || {
- 	mkdir -p "$1" || die "mkd"
+[[ "$REV" ]] && s="$1" || s="rubygem-${f%-*}.spec"
 
- 	cd "$1" || die "cd"
+gem2rpm -o "$s" "$f.gem" || die "spec"
 
-	rm -rf *.spec *.rpm *.gem
-
- 	gem fetch "$1" || die "fetch"
-
- 	REV=
-
- }
-
- f="`ls *.gem`"
-
- f="`basename -s ".gem" "$f"`"
-
- [[ -r "$f.gem" ]] || die "fle"
-
- gem unpack "$f.gem" || die "unpack"
-
- [[ "$REV" ]] && s="$1" || s="rubygem-${f%-*}.spec"
-
- gem2rpm -o "$s" "$f.gem" || die "spec"
-
- [[ "$G2R" ]] || {
+[[ "$G2R" ]] || {
  	echo
  	echo "licensecheck:"
  	licensecheck -r "$f" | grep -vE "UNKNOWN$"
-
  	echo
 
 	[[ "$REV" ]] || {
  		echo "Edit .spec now :)"
  		echo
-
  	}
 
  	mock -q --clean
  	mock -qn --init
 
- 	echo
- 	echo "Now we'll be mocking RPM in loop (on failure)."
- 	echo "Press N to Quit"
- 	echo
+  echo
+  echo "Now we'll be mocking RPM in loop (on failure)."
+  echo "Press N to Quit"
+  echo
 
- 	bask "Ready" || exit 1
+  bask "Ready" || exit 1
 
  	SUCC=
-
- 	while :; do
-		echo
-
+ 	while echo; do
 		fedpkg --release f$FED srpm || die "FedPkg"
 
 		rm -rf result/
@@ -100,22 +90,17 @@
 				echo -e "\nInstall ok!"
 				SUCC=y
 				break
-
 			}
-
 		}
 
 		echo
 		bask "Again" || break
-
  	done
-
  	echo
 
  	[[ "$SUCC" ]] || {
 		echo "Quit"
 		exit 1
-
  	}
 
 	[[ "$REV" ]] || {
@@ -126,12 +111,9 @@
  		[[ -x "$pth" ]] || die "'$pth' missing or not executable"
 
 		exec "$pth" -g
-
  	}
+}
 
- }
-
- [[ "$FAST" ]] || {
+[[ "$FAST" ]] || {
 	fedpkg --release f$FED scratch-build --srpm || die "Scratch"
-
- }
+}
