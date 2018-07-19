@@ -18,8 +18,8 @@ die () {
   exit 1
 }
 
-[[ "$1" == "-d" ]] && { DEBUG=y ; shift ; } || DEBUG=
 [[ "$1" == "-b" ]] && { tool='brew' ; shift ; } || tool='koji'
+[[ "$1" == "-d" ]] && { DEBUG=y ; shift ; } || DEBUG=
 [[ "$1" == "-x" ]] && { E="$1" ; shift ; } || E=
 
 [[ "$1" ]] || die "Arg 'package' Missing"
@@ -33,13 +33,16 @@ shift
 
 while read P; do
   for A in "$@"; do
+    reg="^$P\-[0-9]"
+    gre="\.$A(\+)?"
+
     [[ "$DEBUG" ]] && {
       set -x
-      $tool search build -r "^$P\-[0-9]"
+      $tool search build -r "$reg" | grep -E "$gre"
       { set +x ; } &>/dev/null
     }
 
-    X="`$tool search build -r "^$P\-[0-9]" 2>/dev/null | grep "\.$A$" | tail -n -1`" || echo "$P:$A > search failed"
+    X="`$tool search build -r "$reg" 2>/dev/null | grep -E "$gre" | tail -n -1`" || echo "$P:$A > search failed"
     [[ -z "$X" ]] && echo "$P:$A > no build found" && continue
 
     c=0
