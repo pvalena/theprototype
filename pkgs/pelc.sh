@@ -45,10 +45,7 @@
 #     ./pelc.sh -b stream-ruby-2.5 -c -g rubygem-mongo
 #
 # TODO:
-#     - remove '.freeze' from gemspec output
-#     - option to mute errors
 #     - output in html
-#     - dedup gemspec output
 #     - check oscrypto
 #
 # Ideas:
@@ -245,6 +242,7 @@ while read z; do
 
   # type: ???                                 # <<< [placeholder] \
   [[ "$p" ]] && {
+    # you need to implement this
     die NYI
     p="`ls ${x}-*.??? 2>/dev/null`"
     [[ -n "$p" && -r "$p" ]] || { err "$LINENO: gem file '$p' missing(?)" ; continue ; }
@@ -279,6 +277,7 @@ while read z; do
   [[ -z "$d" ]] && die "$LINENO: no sources dir set"
   cd "$d" || die "$LINENO: failed to cd to sources dir '$d'"
 
+  # licensecheck
   JSF=
   while read j; do JSF="$JSF & $j" ; done < <(
     licensecheck -c '.*' -i '' -l 200 -m -r * | tr -s '\t' ' ' | grep -vE ' (UNKNOWN|GENERATED FILE)$' \
@@ -288,13 +287,14 @@ while read z; do
   )
   out "`cut -d' ' -f3- <<< "$JSF"`"
 
+  # licensee
   JSF=
   while read j; do JSF="$JSF & $j" ; done < <(
     $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
   )
   out "`cut -d' ' -f3- <<< "$JSF"`"
 
+# temporarily disabled
 #  [[ "`oscryptocatcher . | grep content | grep -v '"content": \[\],'`" ]] && out "content" || out
 #  put
-
 done <<< "$lst"
