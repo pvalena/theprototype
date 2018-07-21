@@ -37,7 +37,7 @@
 # Defaults for options:
 #     BRA   rhel-8.0
 #     RHL   8
-#     WID   30,30,40,30
+#     WID   30,30,30,30,30
 #
 # Mandatory args:
 #     PKG   name of a package; can be specified multiple times
@@ -73,8 +73,8 @@ IGN=
 DEB=
 
 stx () { [[ -z "$DEB" ]] || echo "set -x" ; }
-err () { `stx` ; [[ -n "$IGN" && -z "$1" ]] || printf "!! $x: $1\n" >&2 ; }
-die () { `stx` ; [[ -n "$2" ]] && { git status || : ; } || { usage n | cat ; } ; err "$1" f ; exit 1 ; }
+err () { `stx` ; [[ -n "$IGN" && -z "$2" ]] || printf "!! $x: $1\n" >&2 ; }
+die () { `stx` ; [[ -z "$2" ]] && { git status || : ; } || { usage n | cat ; } ; err "$1" f ; exit 1 ; }
 deb () { [[ -z "$DEB" ]] || echo -e " # $x : $@" ; }
 nam () { x="`grep -q '^$pre' <<< "$1" && cut -d'-' -f2- <<< "$1" || echo "$1"`" ; }
 
@@ -115,7 +115,8 @@ usage () {
 [[ "$1" == "-i" ]] && { shift ; i='yy' ; } || i=
 [[ "$1" == "-p" ]] && { shift ; p="$1" ; } || p=
 [[ "$1" == "-r" ]] && { shift ; r="$1" ; shift ; } || r=8
-[[ "$1" == "-w" ]] && { shift ; w="$1" ; shift ; } || w=30,30,40,30
+[[ "$1" == "-s" ]] && { shift ; s="yy" ; } || s=
+[[ "$1" == "-w" ]] && { shift ; w="$1" ; shift ; } || w=30,30,30,30,30
 
 [[ "${1:0:1}" != '-' ]] || die "$LINENO: Unknown arg or invalid order: '$1'" n
 [[ "$1" ]] || die "$LINENO: Please specify PKG" n
@@ -173,11 +174,13 @@ deb "fst = '$fst'"
 
 # Padding for T
 Tp=$(printf "%-${#T}s" -)
-out '-------' '--------' "${Tp// /-}" '------------' '--------' ; put
-out 'package' 'specfile' "$T" 'licensecheck' 'licensee' ; put
-out '-------' '--------' "${Tp// /-}" '------------' '--------' ; put
+
+out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
+out 'package' 'specfile' "$T"         'licensee' 'cucos_license_check' 'licensecheck' 'oscryptocatcher' ; put
+out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
+
 #out '-------' '--------' "${Tp// /-}" '------------' '--------' '--------' ; put
-#out 'package' 'specfile' "$T" 'licensecheck' 'licensee' 'oscrypto' ; put
+#out 'package' 'specfile' "$T"         'ee' 'oscrypto' ; put
 #out '-------' '--------' "${Tp// /-}" '------------' '--------' '--------' ; put
 
 while read z; do
@@ -229,7 +232,7 @@ while read z; do
   out "`cut -d' ' -f3- <<< "$JSF"`"
 
   d=
-  # type: gem
+  # Type: Gem
   [[ -z "$TG" ]] || {
     y="`cut -d'-' -f2- <<< "$x"`"
     g="`ls ${y}-*.gem 2>/dev/null`"
@@ -253,7 +256,7 @@ while read z; do
     ss="`ls ${d}*.gemspec 2>/dev/null`"
     [[ "$ss" ]] || die "$LINENO: gemspec files not found"
 
-    # gemspec output
+    # Output: Gemspec
     JGS=
     while read s; do
       while read gs; do
@@ -265,7 +268,7 @@ while read z; do
 
   # type: ???                                 # <<< [placeholder] \
   [[ "$p" ]] && {
-    # you need to implement this
+    # YOU need to implement this
     die NYI
     p="`ls ${x}-*.??? 2>/dev/null`"
     [[ -n "$p" && -r "$p" ]] || { err "$LINENO: gem file '$p' missing(?)" ; continue ; }
@@ -300,7 +303,21 @@ while read z; do
   [[ -z "$d" ]] && die "$LINENO: no sources dir set"
   cd "$d" || die "$LINENO: failed to cd to sources dir '$d'"
 
-  # licensecheck
+  # Output: licensee
+  JSF=
+  while read j; do JSF="$JSF & $j" ; done < <(
+    $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
+  )
+  out "`cut -d' ' -f3- <<< "$JSF"`"
+
+  # https://copr.devel.redhat.com/coprs/hhorak/cucos-license-check/
+  JSF=
+  while read j; do JSF="$JSF & $j" ; done < <(
+      cucos_license_check.py --only-license . | sort -u
+  )
+  out "`cut -d' ' -f3- <<< "$JSF"`"
+
+  # Output: licensecheck
   JSF=
   while read j; do JSF="$JSF & $j" ; done < <(
     licensecheck -c '.*' -i '' -l 200 -m -r * | tr -s '\t' ' ' | grep -vE ' (UNKNOWN|GENERATED FILE)$' \
@@ -309,14 +326,12 @@ while read z; do
   )
   out "`cut -d' ' -f3- <<< "$JSF"`"
 
-  # licensee
+  # Output: oscryptocatcher
   JSF=
   while read j; do JSF="$JSF & $j" ; done < <(
-    $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
+    oscryptocatcher . | grep content | cut -d'[' -f2- | rev | cut -d']' -f2- | rev | sort -u
   )
   out "`cut -d' ' -f3- <<< "$JSF"`"
 
-# temporarily disabled
-#  [[ "`oscryptocatcher . | grep content | grep -v '"content": \[\],'`" ]] && out "content" || out
   put
 done <<< "$lst"
