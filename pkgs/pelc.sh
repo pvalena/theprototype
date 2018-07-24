@@ -17,7 +17,7 @@
 #     checked-out package repositories
 #
 #     custom scripts:
-#       ./download-builds.sh
+#     #  ./download-builds.sh - currently not used or required
 #
 #     Options need to be supplied in alphabetical order and standalone.
 #
@@ -47,12 +47,12 @@
 #
 # TODO:
 #     - output in html
-#     - enable oscrypto
 #
 # Ideas:
 #     - Use https://github.com/nexB/scancode-toolkit
 #        ./scancode  --license --processes 2
 #     - Type autodetection
+#     - Auto-width all columns
 #
 # Author:
 #     Pavel Valena <pvalena@redhat.com>
@@ -129,10 +129,10 @@ w="0,$w,0"
 IGN="$i"
 DEB="$d"
 myd="$(readlink -e "`pwd`")"
-mydown="$(readlink -e "`dirname "$0"`/download-builds.sh")"
+#mydown="$(readlink -e "`dirname "$0"`/download-builds.sh")"
 
 # Sanity checks.
-[[ -x "$mydown" ]] || die 'No download-builds.sh found: $mydown' n
+#[[ -x "$mydown" ]] || die 'No download-builds.sh found: $mydown' n
 [[ -n "$myd" && -d "$myd" ]] || die "$LINENO: Invalid working directory" n
 
 # Determine packages type
@@ -167,7 +167,8 @@ while read z; do
   [[ $wx -gt $w1 ]] && w1=$wx
 done <<< "$lst"
 
-deb "lst = >>>\n$lst\n<<<\n"
+x=
+deb "\nlst >>>\n$lst\n<<<"
 deb "bra = '$bra'"
 deb "pre = '$pre'"
 deb "fst = '$fst'"
@@ -179,10 +180,7 @@ out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '--------
 out 'package' 'specfile' "$T"         'licensee' 'cucos_license_check' 'licensecheck' 'oscryptocatcher' ; put
 out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
 
-#out '-------' '--------' "${Tp// /-}" '------------' '--------' '--------' ; put
-#out 'package' 'specfile' "$T"         'ee' 'oscrypto' ; put
-#out '-------' '--------' "${Tp// /-}" '------------' '--------' '--------' ; put
-
+# For every package...
 while read z; do
   x='unknown'
   nam "$z"
@@ -213,13 +211,18 @@ while read z; do
     git checkout "$bra" &>/dev/null || die "$LINENO: failed to checkout '$bra'"
     [[ "`git branch | grep '^*' | cut -d' ' -f2`" == "$bra" ]] || die "$LINENO: not on branch: $bra"
     git pull &>/dev/null || die "$LINENO: failed to pull"
+
+    # Cleanup
     rm *.gem &>/dev/null || :
     rm *.rpm &>/dev/null || :
-                                                                        #//<<< INPUT: additional cleanup
+
     rhpkg sources &>/dev/null || die "$LINENO: failed to fetch sources"
-    $mydown -b -x "$z" "el$r" &>/dev/null || err "$LINENO: failed to download RPMs"
+    #rpm packages currently not used
+    #$mydown -b -x "$z" "el$r" &>/dev/null || err "$LINENO: failed to download RPMs"
     { set +x ; } &>/dev/null
   }
+
+  # Really verbose output for DEBUG
   `stx`
 
   # Spec file check
@@ -228,8 +231,8 @@ while read z; do
   SF="`tr -s '\t' ' ' < "$f" | grep '^License:' | cut -d' ' -f2-`" || die "$LINENO: spec file license failed"
 
   JSF=
-  while read j; do JSF="$JSF & $j" ; done <<< "$SF"
-  out "`cut -d' ' -f3- <<< "$JSF"`"
+  while read j; do JSF="$JSF, $j" ; done <<< "$SF"
+  out "`cut -d' ' -f2- <<< "$JSF"`"
 
   d=
   # Type: Gem
@@ -260,10 +263,10 @@ while read z; do
     JGS=
     while read s; do
       while read gs; do
-        [[ "$gs" ]] && JGS="$JGS & $gs"
+        [[ "$gs" ]] && JGS="$JGS, $gs"
       done < <( grep '\.licenses = \[\"' < "$s" | tr -s '\t' ' ' | cut -d'"' -f2- | rev | cut -d'"' -f2- | rev | tr -s '"' ',' | tr -s ',' '\n' | sort -u | grep -v '^.freeze$' )
     done <<< "$ss"
-    out "`cut -d' ' -f3- <<< "$JGS"`"
+    out "`cut -d' ' -f2- <<< "$JGS"`"
   }
 
   # type: ???                                 # <<< [placeholder] \
@@ -294,10 +297,10 @@ while read z; do
     JGS=
     while read s; do
       while read gs; do
-        [[ "$gs" ]] && JGS="$JGS & $gs"
+        [[ "$gs" ]] && JGS="$JGS, $gs"
       done < <(grep '\.licenses = \[\"' < "$s" | tr -s '\t' ' ' | cut -d'"' -f2- | rev | cut -d'"' -f2- | rev | tr -s '"' ',' | tr -s ',' '\n')
     done <<< "$ss"
-    out "`cut -d' ' -f3- <<< "$JGS"`"
+    out "`cut -d' ' -f2- <<< "$JGS"`"
   }
 
   [[ -z "$d" ]] && die "$LINENO: no sources dir set"
@@ -305,33 +308,35 @@ while read z; do
 
   # Output: licensee
   JSF=
-  while read j; do JSF="$JSF & $j" ; done < <(
+  while read j; do JSF="$JSF, $j" ; done < <(
     $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
   )
-  out "`cut -d' ' -f3- <<< "$JSF"`"
+  out "`cut -d' ' -f2- <<< "$JSF"`"
 
+  # Output: cucos_license_check
   # https://copr.devel.redhat.com/coprs/hhorak/cucos-license-check/
   JSF=
-  while read j; do JSF="$JSF & $j" ; done < <(
+  while read j; do JSF="$JSF, $j" ; done < <(
       cucos_license_check.py --only-license . | sort -u
   )
-  out "`cut -d' ' -f3- <<< "$JSF"`"
+  out "`cut -d' ' -f2- <<< "$JSF"`"
 
   # Output: licensecheck
   JSF=
-  while read j; do JSF="$JSF & $j" ; done < <(
+  while read j; do JSF="$JSF, $j" ; done < <(
     licensecheck -c '.*' -i '' -l 200 -m -r * | tr -s '\t' ' ' | grep -vE ' (UNKNOWN|GENERATED FILE)$' \
       | xargs -n1 -i bash -c "c=0 ; while [[ \$c -lt 1000 ]]; do let 'c += 1' ; [[ -r \"\$(cut -d' ' -f-\${c} <<< '{}')\" ]] && { let 'c += 1' ; cut -d' ' -f\${c}- <<< '{}' ; exit 0 ; } ; done ; echo 'NOPE {}' >&2 ; exit 1" \
       | sort -u
   )
-  out "`cut -d' ' -f3- <<< "$JSF"`"
+  out "`cut -d' ' -f2- <<< "$JSF"`"
 
   # Output: oscryptocatcher
+  # https://copr.devel.redhat.com/coprs/hhorak/oscryptocatcher/
   JSF=
-  while read j; do JSF="$JSF & $j" ; done < <(
-    oscryptocatcher . | grep content | cut -d'[' -f2- | rev | cut -d']' -f2- | rev | sort -u
+  while read j; do JSF="$JSF, $j" ; done < <(
+    oscryptocatcher . | grep '"crypto": ' | cut -d'"' -f4 | sort -u
   )
-  out "`cut -d' ' -f3- <<< "$JSF"`"
+  out "`cut -d' ' -f2- <<< "$JSF"`"
 
   put
 done <<< "$lst"
