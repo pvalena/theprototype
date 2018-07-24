@@ -115,7 +115,6 @@ usage () {
 [[ "$1" == "-i" ]] && { shift ; i='yy' ; } || i=
 [[ "$1" == "-p" ]] && { shift ; p="$1" ; } || p=
 [[ "$1" == "-r" ]] && { shift ; r="$1" ; shift ; } || r=8
-[[ "$1" == "-s" ]] && { shift ; s="yy" ; } || s=
 [[ "$1" == "-w" ]] && { shift ; w="$1" ; shift ; } || w=30,30,30,30,30
 
 [[ "${1:0:1}" != '-' ]] || die "$LINENO: Unknown arg or invalid order: '$1'" n
@@ -176,8 +175,7 @@ deb "fst = '$fst'"
 # Padding for T
 Tp=$(printf "%-${#T}s" -)
 
-out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
-out 'package' 'specfile' "$T"         'licensee' 'cucos_license_check' 'licensecheck' 'oscryptocatcher' ; put
+out 'package' 'specfile' "$T"         'licensee' 'cucos license check' 'licensecheck' 'oscryptocatcher' ; put
 out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
 
 # For every package...
