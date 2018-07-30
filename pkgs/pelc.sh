@@ -45,14 +45,19 @@
 # Example:
 #     ./pelc.sh -b stream-ruby-2.5 -c -g rubygem-mongo
 #
-# TODO:
-#     - output in html
-#
 # Ideas:
 #     - Use https://github.com/nexB/scancode-toolkit
 #        ./scancode  --license --processes 2
 #     - Type autodetection
 #     - Auto-width all columns
+#     - Check with pelc.eng.rh.c API
+#     - Use generic approach:
+#       $ rhpkg module-build-info 1044 | grep -E '^\s*NVR' | sort -u | tr -s ' ' | cut -d' ' -f3 | xargs -i brew download-build -q -a noarch -a x86_64 "{}"
+#       $ ls *.rpm | rev | cut -d. -f2- | rev | xargs -i bash -c "echo -e \"\n>>>{}\" ; set -xe ; mkdir -p '{}' ; cd '{}' ; mv -vi '../{}.rpm' . "
+#       $ ./list.sh -a -k 'rhel-8.0-candidate' 'rubygem-' | xargs -i brew download-build -q -a noarch -a x86_64 -a src "{}"
+#       $ nano `find -type f | grep -vE '\.(ri|ttf|png|gif|gz)$'`
+#       $ rpm --requires -qp rubygem-multi_json*.rpm | sort -u
+#       $ grep -riE '(cryp|ssl)' | grep -iv ^spec | grep -iv ^CHANGEL | grep -v \.txt:
 #
 # Author:
 #     Pavel Valena <pvalena@redhat.com>
