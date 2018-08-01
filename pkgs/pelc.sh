@@ -58,6 +58,7 @@
 #       $ nano `find -type f | grep -vE '\.(ri|ttf|png|gif|gz)$'`
 #       $ rpm --requires -qp rubygem-multi_json*.rpm | sort -u
 #       $ grep -riE '(cryp|ssl)' | grep -iv ^spec | grep -iv ^CHANGEL | grep -v \.txt:
+#     - Update oscryptocatcher(needs python3)
 #
 # Author:
 #     Pavel Valena <pvalena@redhat.com>
