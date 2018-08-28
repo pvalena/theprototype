@@ -18,6 +18,7 @@ main () {
           | grep -v '^Error from server (Forbidden): ' \
           | grep -v '^Error from server (NotFound): ' \
           | grep -v "^error: the server doesn't have a resource type " \
+          | grep -v "^The connection to the server " \
       )"
       [[ -z "$d" ]] && continue
 
