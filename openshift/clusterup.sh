@@ -63,6 +63,8 @@ WD="${1:-/tmp/clusterup}"
 UR="${2:-https://127.0.0.1:8443}"
 AR="${3:---insecure-skip-tls-verify}"
 
+gos="$(dirname "`readlink -e "$0"`")/getocstatus.sh"
+
 mkdir -p "$WD"
 cd "$WD"
 
@@ -77,3 +79,5 @@ oc_login || {
     --public-hostname=127.0.0.1
   oc_login
 }
+
+[[ -x "$gos" ]] && exec $gos
