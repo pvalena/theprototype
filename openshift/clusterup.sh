@@ -24,6 +24,8 @@ oc_login () {
   ${oc} status
   rc=$?
 
+  docker login -u developer -p $(${oc} whoami -t) 172.30.1.1:5000
+
   [[ -n "$PR" ]] && rc=1
   return $rc
 }
