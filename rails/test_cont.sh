@@ -36,4 +36,4 @@ read -r -d '' BSC << EOS||:
   curl -Lks http://0.0.0.0:3000 $debug | head
 EOS
 
-exec docker run --rm -it "$1" /bin/bash -c "$BSC"
+exec docker run --rm -it "$1" bash -c "$BSC"
