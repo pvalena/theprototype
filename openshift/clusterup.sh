@@ -43,7 +43,8 @@ oc_clean () {
   sudo rm -rf ~/.kube/
 }
 
-oc="`which oc`"
+#oc="`which oc`"
+oc="`readlink -e /usr/local/bin/oc`"
 
 [[ "$1" == "--pretend" ]] && {
   shift
