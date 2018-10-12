@@ -74,9 +74,12 @@ cd "$WD"
   oc_clean
 }
 
+# 3.10+
+#--base-dir="${WD}" \
 oc_login || {
   ${oc} cluster up \
-    --base-dir="${WD}" \
+    --host-data-dir="${WD}" \
+    --use-existing-config \
     --public-hostname=127.0.0.1
   oc_login
 }
