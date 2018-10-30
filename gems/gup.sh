@@ -1,10 +1,15 @@
 #!/bin/bash
 
-EXT="gz|tgz|xz|gem"
+# clean
+EXT="tgz|gem|tar.gz|tar.xz|tar|tar.bz2"
 
 die () {
-  echo "--> Error: $1!" >&2
+  warn "Error" "$1"
   exit 1
+}
+
+warn () {
+  echo "--> $1: $2!" >&2
 }
 
 clean () {
@@ -37,8 +42,12 @@ ask () {
 } || ver=
 
 clean
-git fetch || die 'Failed to git fetch'
 git fetch origin || die 'Failed to git fetch origin'
+git fetch pvalena || {
+  git remote -v | grep -q pvalena \
+    || git remote add pvalena git+ssh://pvalena@pkgs.fedoraproject.org/forks/pvalena/rpms/`basename $PWD`.git
+  git fetch pvalena || warn "Failed to fetch pvalena"
+}
 
 git log -p
 echo
@@ -47,12 +56,17 @@ git diff | colordiff
 echo
 
 git status
-ask 'Reset repository'
+ask "We'll stash&reset the repository, ok"
 
 git stash || die 'Failed to stash git'
+
+git checkout rebase || {
+  git checkout -b rebase || warn "Failed to switch to rebase branch"
+}
+
 git reset --hard origin/master || die 'Failed to reset git'
 
-fedpkg srpm &>/dev/null || die 'Failed to recreate old srpm'
+fedpkg --release master srpm &>/dev/null || die 'Failed to recreate old srpm'
 sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
 clean
 
@@ -113,6 +127,29 @@ for x in `spectool -A "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 
   [[ -r "$x" ]] || die "Source not found: $x"
 
   echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
+
+  # Add .gitignore entry, if missing
+  g='.gitignore'
+  e=
+  grep -q "$ver" <<< "$x" && {
+    e="`sed "s/$ver/*/" <<< "$x"`"
+    :
+  } || {
+    t="`rev <<< "$x" | cut -d'-' -f2- | rev`"
+    sf=
+    for s in `tr '|' ' ' <<< "$EXT"`; do
+      grep -q "$s" <<< "$x" && sf="$s"
+    done
+
+    [[ -n "$sf" && -n "$t" ]] && {
+      e="${t}-*.${sf}"
+    }
+  }
+
+  [[ -z "$e" ]] || {
+    e="/$e"
+    grep -q "^$e$" "$g" || echo "$e" >> "$g"
+  }
 done > sources
 
 echo
@@ -122,17 +159,44 @@ ask 'Continue'
 git commit -am "$M" || die "Failed to commit with message '$M'"
 
 git show
-
 echo
 git status
-ask 'Continue'
 
-ask 'Run review'
+ask 'Run build'
+for c in 'clean' 'init' 'pm-cmd update'; do
+  mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --$c || die "Failed to '$c' mock"
+done
 
-fedpkg srpm || die 'New fedpkg srpm failed'
+F='-n'
+while :; do
+  cst -c $F *.spec 'exit 0'
+  F=
 
-rev="$(readlink -f "`dirname "$0"`/rev.sh")"
-[[ -n "$rev" && -x "$rev" ]] || die "Invalid review script: '$rev'"
+  # Workaround for RHEL7 incapability for rich deps
+  sed -i 's/^Recommends: /Requires: /' *.spec
+  sed -i '/^Suggests: / s/^/#/' *.spec
 
-clear
-exec "$rev" -f
+  rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/build/SRPMS/*.rpm
+  rm *.src.rpm
+  rm result/*
+
+  fedpkg --release master srpm || continue
+
+  mock -n --old-chroot --resultdir=result --bootstrap-chroot -r fedora-rawhide-x86_64 *.src.rpm \
+    && break
+done
+
+rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/*.rpm
+rm *.src.rpm
+
+ls result/*.rpm | grep -E '\.(noarch|x86_64)\.rpm$' \
+  | xargs sudo cp -vt /var/lib/mock/fedora-rawhide-x86_64/root/builddir \
+  && sudo mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --chroot 'rpm -U /builddir/*.rpm ; rpm -v --reinstall /builddir/*.rpm' \
+  || die "Failed to install resulting packages"
+
+mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --clean || warn "Failed to clean mock"
+
+echo "Rpmlint:"
+rpmlint result/*.rpm
+
+copr-cli build "rubygems" result/*.src.rpm
