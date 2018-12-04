@@ -1,14 +1,18 @@
 #!/bin/bash
 
+bash -n "$0" || exit 1
+
 # clean
 EXT="tgz|gem|tar.gz|tar.xz|tar|tar.bz2"
 
 die () {
+  echo
   warn "Error" "$1"
   exit 1
 }
 
 warn () {
+  echo
   echo "--> $1: $2!" >&2
 }
 
@@ -19,9 +23,10 @@ clean () {
 }
 
 ask () {
+  local r=
   echo
-  read -n1 -p ">> $@? " x
-  grep -qi '^y' <<< "${x}" || die 'User quit'
+  read -n1 -p ">> $@? " r
+  grep -qi '^y' <<< "${r}" || die 'User quit'
   clear
   return 0
 }
@@ -45,7 +50,7 @@ clean
 git fetch origin || die 'Failed to git fetch origin'
 git fetch pvalena || {
   git remote -v | grep -q pvalena \
-    || git remote add pvalena git+ssh://pvalena@pkgs.fedoraproject.org/forks/pvalena/rpms/`basename $PWD`.git
+    || git remote add pvalena "git+ssh://pvalena@pkgs.fedoraproject.org/forks/pvalena/rpms/`basename "$PWD"`.git"
   git fetch pvalena || warn "Failed to fetch pvalena"
 }
 
@@ -56,7 +61,7 @@ git diff | colordiff
 echo
 
 git status
-ask "We'll stash&reset the repository, ok"
+ask "We'll stash & reset the repository, ok"
 
 git stash || die 'Failed to stash git'
 
@@ -66,7 +71,18 @@ git checkout rebase || {
 
 git reset --hard origin/master || die 'Failed to reset git'
 
-fedpkg --release master srpm &>/dev/null || die 'Failed to recreate old srpm'
+E="`fedpkg --release master srpm`" || {
+  warn "Failed to recreate old srpm" "$E"
+  warn 'Trying to remove' 'richdeps'
+
+  sed -i 's/^Recommends: /Requires: /' *.spec
+  sed -i '/^Suggests: / s/^/#/' *.spec
+
+  E="`fedpkg --release master srpm`" || {
+    die "Failed to recreate old srpm(2)" "$E"
+  }
+}
+
 sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
 clean
 
@@ -98,13 +114,20 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   rm -rf "$nam/" || die "Failed to remove '$nam/'"
 }
 
+# Could be modified, let's remember the original one
+git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
+p="`git format-patch HEAD^`"
+git reset --soft HEAD^
+
 M="Update to $nam ${ver}."
 c="rpmdev-bumpspec -c '$M'"
+
 bash -c "$c -n '$ver' '$X'" || {
+  sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
+  sed -i "s/^\(Release:\)\s*[0-9]*\(.*\)$/\1 0\2/" "$X"
+
   bash -c "$c '$X'" \
-    && sed -i "s/^\(Version:\).*$/\1 $ver/" "$X" \
-    && sed -i "s/^\(Release:\)\s*[0-9]*\(.*\)$/\1 1\2/" "$X" \
-    || die "Failed to bump spec with version '$ver' and message '$M'"
+    || die "Failed to bump spec with message '$M'"
 }
 
 gcom=' (tar|git|cp|mv|cd) '
@@ -121,24 +144,39 @@ cmd=$( grep -A 3 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#'
   bash -c "$cmd" || die 'Failed to execute $cmd'
 }
 
+# All output gets written into sources-new file here
 for x in `spectool -A "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
   { find -mindepth 2 -type f -name "$x" | xargs -n1 -i mv -v "{}" . ; } 1>&2
 
-  [[ -r "$x" ]] || die "Source not found: $x"
+  [[ -r "$x" ]] && {
+    echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
+    :
+  } || {
+    warn "Source not found" "$x"
+    warn 'Trying' 'original sources'
 
-  echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
+    i="`grep "^SHA512 ($x) = " sources`"
+
+    [[ -n "$i" ]] && {
+      echo "$i"
+      :
+    } || {
+      warn "Source not found(2)" "$x"
+      ask 'Continue anyway'
+    }
+  }
 
   # Add .gitignore entry, if missing
   g='.gitignore'
   e=
   grep -q "$ver" <<< "$x" && {
-    e="`sed "s/$ver/*/" <<< "$x"`"
+    e="`sed "s/$ver/\*/" <<< "$x"`"
     :
   } || {
     t="`rev <<< "$x" | cut -d'-' -f2- | rev`"
     sf=
     for s in `tr '|' ' ' <<< "$EXT"`; do
-      grep -q "$s" <<< "$x" && sf="$s"
+      grep -q "$s$" <<< "$x" && sf="$s"
     done
 
     [[ -n "$sf" && -n "$t" ]] && {
@@ -148,9 +186,15 @@ for x in `spectool -A "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 
 
   [[ -z "$e" ]] || {
     e="/$e"
-    grep -q "^$e$" "$g" || echo "$e" >> "$g"
+    grep -q "^`printf "%q" "$e"`$" "$g" || echo "$e" >> "$g"
   }
-done > sources
+done > sources-new
+grep -v '^$' sources-new > sources
+rm sources-new
+
+# Finished work on .spec file, revert temp changes
+patch -p1 -R < "$p" || die "Failed to reverse-apply patch" "$p"
+rm "$p"
 
 echo
 gem compare -bk "$nam" "$ov" "$ver"
