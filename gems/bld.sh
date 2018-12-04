@@ -1,7 +1,12 @@
 #!/bin/bash
-# -b  checkout branch $2
-# -r  stash & reset to origin/HEAD
-# -s  do not run scratch-build
+#
+# !! USE UPDATED FEDORA VERSION INSTEAD !!
+#
+# ./bld.sh [-b BRANCH][-r BRANCH]
+#   -b  checkout branch $BRANCH
+#   -r  stash & reset to origin/$BRANCH (see '-b'; defaults to HEAD)
+#   -s  DO NOT run scratch-build
+#
 
 set -e
 bash -n "$0"
@@ -17,11 +22,12 @@ die () {
 [[ "$1" == "-r" ]] && { RE='yy' ; shift 1 ; } || RE=
 [[ "$1" == "-s" ]] && { SB='yy' ; shift 1 ; } || SB=
 
-[[ -z "$BR" ]] || {
+[[ -z "$BR" ]] && BR=HEAD || {
   set -x
     fedpkg switch-branch "$BR"
     git checkout "$BR"
-    git status 2>&1 | grep -q "^On branch $BR$"
+    git branch -u "origin/$BR"
+    git status 2>&1 | grep -q "On branch $BR$"
   { set +x ; } &>/dev/null
 }
 
@@ -30,7 +36,7 @@ git fetch
 [[ -z "$RE" ]] || {
   set -x
     git stash || die 'stash git'
-    git reset --hard origin/HEAD || die 'reset git'
+    git reset --hard "origin/$BR" || die "reset git: $BR"
   { set +x ; } &>/dev/null
 }
 
