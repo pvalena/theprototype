@@ -24,6 +24,7 @@ oc_login () {
   ${oc} status
   rc=$?
 
+  sleep 1
   docker login -u developer -p $(${oc} whoami -t) 172.30.1.1:5000
 
   [[ -n "$PR" ]] && rc=1
@@ -43,8 +44,10 @@ oc_clean () {
   sudo rm -rf ~/.kube/
 }
 
-#oc="`which oc`"
-oc="`readlink -e /usr/local/bin/oc`"
+oc="`which oc`"
+
+# Custom oc
+#oc="`readlink -e /usr/local/bin/oc`"
 
 [[ "$1" == "--pretend" ]] && {
   shift
@@ -74,12 +77,13 @@ cd "$WD"
   oc_clean
 }
 
-# 3.10+
-#--base-dir="${WD}" \
+# Pre 3.10
+#    --host-data-dir="${WD}" \
+#    --use-existing-config \
+
 oc_login || {
   ${oc} cluster up \
-    --host-data-dir="${WD}" \
-    --use-existing-config \
+    --base-dir="${WD}" \
     --public-hostname=127.0.0.1
   oc_login
 }

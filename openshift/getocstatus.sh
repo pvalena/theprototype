@@ -6,11 +6,11 @@
 i="${1:-10}"
 
 main () {
-  {
-    oc get
-    echo " * templates"
-  } 2>&1 | grep '^ *' | tr -s '\t' ' ' | cut -d' ' -f3 | sort -u \
-    | grep -vE '^(all|podpreset|serviceaccounts|rolebindings|clusterroles|events|persistentvolumes|imagestreamtags|projects|secrets|userserror\:)$' \
+  oc api-resources \
+    | tr -s ' ' \
+    | cut -d' ' -f1 \
+    | sort -u \
+    | grep -vE '^(all|podpreset|serviceaccounts|rolebindings|clusterroles|events|persistentvolumes|imagestreamtags|projects|secrets|projectrequests|imagestreammappings|bindings|userserror\:)$' \
     | while read n; do
       d="$(
         { oc get "$n" ; } 2>&1 \
