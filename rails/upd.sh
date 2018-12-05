@@ -1,37 +1,39 @@
 #!/bin/bash
 #
-# 1] Set correct rawhide in railsbuild-common
-# 2] Set VARIABLES
+# 1] Set VARIABLES (edit this file)
+# 2] Set correct rawhide in railsbuild-common
 #
-# Usage:
 # ./upd.sh [-c][-n][-k][-c]
 #	  -n	skip nobuild test
 #	  -l	skip local builds
 #	  -k	continue local build (do not clean data for local build, implies '-n')
 #	  -c	continue real build (do not clean data, implies '-n' and '-l')
 #
+# Variables::
 
+ export RPM_PACKAGER='Pavel Valena <pvalena@redhat.com>'
  RAILSBUILD_DIR="$(readlink -e "`dirname "$0"`/../../../../rails/railsbuild/")"
 
-################################
+################################################################################
 
-  . lpcsbclass
+bash -n "$0"
 
- uxit () {
+ . lpcsbclass
+
+uxit () {
  	echo "User Quit" 2>&1
  	exit 1
+}
 
- }
+CDIR="`pwd`"
 
- CDIR="`pwd`"
+[[ -d "$RAILSBUILD_DIR" ]] || die "RailsBuild dir missing!"
+[[ -r "$RAILSBUILD_DIR/railsbuild" ]] || die "RailsBuild script missing!"
 
- [[ -d "$RAILSBUILD_DIR" ]] || die "RailsBuild dir missing!"
- [[ -r "$RAILSBUILD_DIR/railsbuild" ]] || die "RailsBuild script missing!"
-
- NOB=Y
- LOC=Y
- KLEA=Y
- CLEA=Y
+NOB=Y
+LOC=Y
+KLEA=Y
+CLEA=Y
 
 while [[ "${1:0:1}" == '-' && "${1:2:1}" == '' ]]; do
   case "${1:1:1}" in
