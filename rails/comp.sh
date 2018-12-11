@@ -34,5 +34,7 @@
       actionpack
       actionmailer
       actioncable
+      activestorage
+      activejob
       railties
       rails" | cut -d' ' -f2 | grep -vE "^$")
