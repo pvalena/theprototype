@@ -114,10 +114,14 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   rm -rf "$nam/" || die "Failed to remove '$nam/'"
 }
 
-# Could be modified, let's remember the original one
-git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
-p="`git format-patch HEAD^`"
-git reset --soft HEAD^
+P=''
+# Could be modified; check
+gits -uno | grep -q '^nothing to commit ' || {
+  # It is let's remember the original one
+  git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
+  P="`git format-patch HEAD^`"
+  git reset --soft HEAD^
+}
 
 M="Update to $nam ${ver}."
 c="rpmdev-bumpspec -c '$M'"
@@ -192,9 +196,11 @@ done > sources-new
 grep -v '^$' sources-new > sources
 rm sources-new
 
-# Finished work on .spec file, revert temp changes
-patch -p1 -R < "$p" || die "Failed to reverse-apply patch" "$p"
-rm "$p"
+# Finished work on .spec file, revert temp/richdeps changes, if there are
+[[ -n "$P" && -r "$P" ]] && {
+  patch -p1 -R < "$P" || die "Failed to reverse-apply patch" "$P"
+  rm "$P"
+}
 
 echo
 gem compare -bk "$nam" "$ov" "$ver"
