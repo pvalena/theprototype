@@ -9,8 +9,9 @@
 #
 #   ! Run it as a same user you run dnf(f.e. with sudo) !
 #
-#   -v  verbose output (all constraints)
-#   -d  debug output (all entries)
+#   Options:
+#     -v  verbose output (all constraints)
+#     -d  debug output (all entries)
 #
 
 set -e
