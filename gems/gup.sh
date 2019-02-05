@@ -37,7 +37,7 @@ ask () {
 	FED="$1"
 	shift
 
-} || FED=29 # <<<<<<<<<<<<<<<
+} || FED=30 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-v" ]] && {
   shift
@@ -102,7 +102,8 @@ f="$(basename -s '.gem' "`ls *.gem`")"
 [[ "$nam" == "`rev <<< "$f" | cut -d'-' -f2- | rev`" ]] || die "Failed gem name check of file: '$f'"
 
 xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
-[[ -z "$ver" ]] && ver="$xv"
+[[ -n "$ver" ]] && ver="`cut -d' ' -f2 <<< "$ver"`" || ver="$xv"
+
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
 [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
@@ -217,14 +218,10 @@ for c in 'clean' 'init' 'pm-cmd update'; do
   mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --$c || die "Failed to '$c' mock"
 done
 
-F='-n'
 while :; do
-  cst -c $F *.spec 'exit 0'
-  F=
-
   # Workaround for RHEL7 incapability for rich deps
-  sed -i 's/^Recommends: /Requires: /' *.spec
-  sed -i '/^Suggests: / s/^/#/' *.spec
+  #sed -i 's/^Recommends: /Requires: /' *.spec
+  #sed -i '/^Suggests: / s/^/#/' *.spec
 
   rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/build/SRPMS/*.rpm
   rm *.src.rpm
@@ -234,6 +231,8 @@ while :; do
 
   mock -n --old-chroot --resultdir=result --bootstrap-chroot -r fedora-rawhide-x86_64 *.src.rpm \
     && break
+
+  ask 'Failed, repeat' || exit 1
 done
 
 rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/*.rpm
