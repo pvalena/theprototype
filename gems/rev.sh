@@ -18,15 +18,10 @@ checkdebug "$1" && shift
   shift
 } || G2R=
 
-[[ "$1" == "-f" ]] && {
-  FAST="$1"
+[[ "$1" == "-s" ]] && {
+  SIM="$1"
   shift
-} || FAST=
-
-[[ "$1" == "-n" ]] && {
-  NOC="$1"
-  shift
-} || NOC=
+} || SIM=
 
 rm -f *.gem
 
@@ -58,17 +53,19 @@ l="`basename "$s"`"
 dff "$l" "$s" || die "dff spec"
 baskc
 
-mkdir -p test || die "mkd test"
-rm -rf test/*
-t="test/$l"
+[[ "$SIM" ]] && t="$l" || {
+  mkdir -p test || die "mkd test"
+  rm -rf test/*
+  t="test/$l"
 
-pth="$DIR/g2r.sh"
-debug "pth = '$pth'"
-[[ -r "$pth" ]] || die "'$pth' missing"
-pth="$(escape "$pth")"
+  pth="$DIR/g2r.sh"
+  debug "pth = '$pth'"
+  [[ -r "$pth" ]] || die "'$pth' missing"
+  pth="$(escape "$pth")"
 
-debug "$pth $VER $G2R $FAST $NOC -r \"$t\""
-eval "$pth $VER $G2R $FAST $NOC -r \"$t\"" || die "g2r"
+  debug "$pth $VER $G2R $FAST $NOC -r \"$t\""
+  eval "$pth $VER $G2R $FAST $NOC -r \"$t\"" || die "g2r"
+}
 
 [[ "$t" && -r "$t" ]] || die "new spec fle: '$t'"
 
@@ -79,10 +76,8 @@ x="`basename -s ".gem" "$x"`"
 # TODO: chroot this
 # ruby -e "p(require '$x')"
 
-[[ "$FAST" ]] || {
+[[ -n "$FAST$SIM" ]] || {
   dff "$t" "$l"
-
-  ruby -e "p(require 'json')"
 
   ls result/*.rpm | while read p; do
     echo ">>> `cut -d'/' -f2- <<< "$p"`"
@@ -128,8 +123,10 @@ x="`basename -s ".gem" "$x"`"
  	rm -rf "$l/" || die "failed to remove '$l/'"
 }
 
- fedora-review -r -n "$f" || die "fedora-review failed"
- y="$l/review.txt"
- [[ -f "$y" ]] || die "review.txt not found"
- set -x
- exec nn "$y"
+[[ -n "$SIM" ]] || {
+  fedora-review -r -n "$f" || die "fedora-review failed"
+  y="$l/review.txt"
+  [[ -f "$y" ]] || die "review.txt not found"
+  set -xe
+  exec nn "$y"
+}
