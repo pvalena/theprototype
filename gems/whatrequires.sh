@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ./whatrequires.sh [-v][-d] GEM1 GEM2 GEM3
+# ./whatrequires.sh [-a][-v][-d] GEM1 GEM2 GEM3
 #   Looks up dependencies using `dnf repoquery` in 'rawhide*' repos.
 #   You need to have `rawhide` repos installed.
 #   Auto-fills rubygem(GEM) or rubygem-GEM.
@@ -9,9 +9,10 @@
 #
 #   ! Run it as a same user you run dnf(f.e. with sudo) !
 #
-#   Options:
-#     -v  verbose output (all constraints)
+#   Options; expected in alpabetic order:
+#     -a  all entries (debug output)
 #     -d  debug output (all entries)
+#     -v  verbose output (all constraints)
 #
 
 set -e
@@ -21,6 +22,7 @@ xdnf="dnf -q --disablerepo='*' --enablerepo='rawhide*'"
 D=requires
 C=what$D
 
+[[ "$1" == '-a' ]] && { DEBUG=y ; shift ; } ||:
 [[ "$1" == '-d' ]] && { DEBUG=y ; shift ; } ||:
 [[ "$1" == '-v' ]] && { VERBO=y ; shift ; } ||:
 [[ "${1:0:1}" != '-' ]] || { echo "Invalid arg: $1" ; exit 1 ; }
