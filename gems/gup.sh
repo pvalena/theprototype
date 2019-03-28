@@ -37,7 +37,7 @@ ask () {
 	FED="$1"
 	shift
 
-} || FED=30 # <<<<<<<<<<<<<<<
+} || FED=31 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-v" ]] && {
   shift
@@ -213,7 +213,19 @@ git show
 echo
 git status
 
-ask 'Run build'
+ask 'Run copr build'
+mc=rubygems
+[[ -x ../cr-build.sh ]] && {
+  ../cr-build.sh $mc
+  :
+} || {
+  rm *.src.rpm
+  fedpkg --release master srpm
+  copr-cli build "$mc" *.src.rpm
+}
+
+ask 'Run mock build'
+
 for c in 'clean' 'init' 'pm-cmd update'; do
   mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --$c || die "Failed to '$c' mock"
 done
@@ -247,5 +259,3 @@ mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --clean || warn
 
 echo "Rpmlint:"
 rpmlint result/*.rpm
-
-copr-cli build "rubygems" result/*.src.rpm
