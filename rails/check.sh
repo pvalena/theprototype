@@ -8,18 +8,17 @@
 #   Uses current working directory.
 #
 
- die () {
-    echo "Error: $1!" 2>&1
-    exit 1
+die () {
+  echo "Error: $1!" 2>&1
+  exit 1
+}
 
- }
+[[ "${1:0:1}" == "f" ]] && { D="$1" ; shift ; } || D="master"
+[[ "$1" ]] || die "Arg missing"
 
- [[ "${1:0:1}" == "f" ]] && { D="$1" ; shift ; } || D="master"
- [[ "$1" ]] || die "Arg missing"
+my="$(readlink -e "`pwd`")"
 
- my="$(readlink -e "`pwd`")"
-
- [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
+[[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
 
 for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
   G="rubygem-$x"
@@ -34,6 +33,7 @@ for x in railties rails activesupport activestorage activerecord activejob actio
     exit 1
   }
 
+  ## Use forward.sh instead ##
   #git stash &>/dev/null
   #git checkout master &>/dev/null
   #[[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
