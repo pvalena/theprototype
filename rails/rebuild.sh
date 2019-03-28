@@ -57,14 +57,14 @@ delim
 xargs -n1 -i bash -c "echo ; set -x ; ls 'rubygem-{}' &>/dev/null || exit 255 ; cd 'rubygem-{}' || exit 255 ; git pull || exit 255 ; git status | grep -q \"Your branch is up to date with '${DB}'.\" && exit 0 ; git s | grep -q \"Your branch is ahead of '${DB}' by 1 commit.\" || exit 255 ; for z in {1..10}; do fedpkg scratch-build --srpm && fedpkg new-sources \$(cut -d'(' -f2 < sources | cut -d')' -f1) && { fedpkg push || exit 255 ; for x in {1..10}; do fedpkg build && exit 0 ; sleep 600 ; done ; exit 255 ; } ; sleep 600 ; done ; exit 255" <<EOLX
 activesupport
 activejob
-activemodel-bs
-activerecord
 activestorage-bs
 actionview-bs
 actionpack-bs
 actionmailer
 actioncable
 railties-bs
+activemodel-bs
+activerecord
 rails
 activemodel
 actionview
