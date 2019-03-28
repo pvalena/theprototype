@@ -15,7 +15,7 @@ my="$(readlink -e "`pwd`")"
 
 [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
 
-for x in railties rails activesupport activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
+for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
   G="rubygem-$x"
 
   [[ -d "$G" ]] || {
@@ -44,9 +44,9 @@ for x in railties rails activesupport activerecord activejob actionview actionpa
   git stash &>/dev/null
   git checkout master &>/dev/null
   [[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
-  git status | grep -q 'nothing to commit, working directory clean' || die 'Uncommited changes'
+  git status -uno | grep -q '^nothing to commit ' || die 'Uncommited changes'
   git pull &>/dev/null || die 'Pull failed'
-  git status | grep -q 'Your branch is up-to-date' || die 'Failed to fast-forward'
+  git status -uno | grep -q '^Your branch is up to date' || die 'Failed to fast-forward'
 
   git log --oneline -1 | grep -v '^$'
 
