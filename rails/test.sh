@@ -83,8 +83,8 @@ usage () {
 
 mock "$@" -n $Q $T --unpriv --chroot "cd && rm -rf app/"
 
-mock "$@" -n $Q $T --unpriv --chroot "cd && yes | rails new app --skip-bundle" || die "rails new failed"
+mock "$@" -n $Q $T --unpriv --chroot "cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap -f" || die "rails new failed"
 
-mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i '/chromedriver-helper/ s/^/#/g' Gemfile" || die "Gemfile edits failed"
+#mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && sed -i '/chromedriver-helper/ s/^/#/g' Gemfile" || die "Gemfile edits failed"
 
-mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && { ( rails s | tee -a railss.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | head -30 | grep '<title>Ruby on Rails</title>' && echo OK && exit 0 ; } ; exit 1" || die '`rails server` failed'
+mock "$@" -n $Q $T --unpriv --chroot "cd && cd app && { ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | tee -a /dev/stderr | grep -q '<title>Ruby on Rails</title>' && echo OK && exit 0 ; cat rails.log ; } ; exit 1" || die '`rails server` failed'
