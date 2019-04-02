@@ -25,8 +25,12 @@ clean () {
 ask () {
   local r=
   echo
-  read -n1 -p ">> $@? " r
-  grep -qi '^y' <<< "${r}" || die 'User quit'
+  [[ -n "$YES" ]] &&
+    echo ">> $@. "
+  } || {
+    read -n1 -p ">> $@? " r
+    grep -qi '^y' <<< "${r}" || die 'User quit'
+  }
   clear
   return 0
 }
@@ -36,15 +40,23 @@ ask () {
   shift
 	FED="$1"
 	shift
-
 } || FED=31 # <<<<<<<<<<<<<<<
+
+[[ "$1" == "-m" ]] && {
+	MOC="$1"
+	shift
+} || MOC=31
 
 [[ "$1" == "-v" ]] && {
   shift
 	ver="-v $1"
 	shift
-
 } || ver=
+
+[[ "$1" == "-y" ]] && {
+	YES="$1"
+	shift
+} || YES=
 
 clean
 git fetch origin || die 'Failed to git fetch origin'
@@ -224,6 +236,7 @@ mc=rubygems
   copr-cli build "$mc" *.src.rpm
 }
 
+[[ -z "$MOC" ]] || exit 0
 ask 'Run mock build'
 
 for c in 'clean' 'init' 'pm-cmd update'; do
