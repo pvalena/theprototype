@@ -24,7 +24,7 @@
 
  while read x; do
         echo " >> $x"
-        gem compare -bk "$x" "$FROM" "$INTO"
+        gem compare -bk "$x" "$FROM" "$INTO" | lss
         echo
 
  done < <(tr -s ' ' <<< "activesupport
