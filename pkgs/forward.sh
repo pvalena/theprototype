@@ -37,9 +37,9 @@ while read G; do
   [[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || { error 'Failed to checkout master' ; continue ; }
   git status -uno | grep -q 'nothing to commit (use -u to show untracked files)' || { error 'Uncommited changes' ; continue ; }
   git pull &>/dev/null || { error 'Pull failed' ; continue ; }
-  git status | grep -q 'Your branch is up-to-date' || { error 'Failed to fast-forward' ; continue ; }
+  git pull | grep -q 'Already up-to-date.' || { error 'Failed to pull changes' ; continue ; }
 
   echo "Ok        `git log --oneline -1 | grep -v '^$' | cut -d' ' -f2-`"
-done < <( ls -d )
+done < <( ls -d "$@" | grep -v '^\.' )
 
 echo
