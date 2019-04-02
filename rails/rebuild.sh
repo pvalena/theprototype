@@ -62,9 +62,9 @@ actionview-bs
 actionpack-bs
 actionmailer
 actioncable
-railties-bs
 activemodel-bs
 activerecord
+railties-bs
 rails
 activemodel
 actionview
