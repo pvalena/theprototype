@@ -25,11 +25,13 @@ clean () {
 ask () {
   local r=
   echo
-  [[ -n "$YES" ]] &&
+  [[ -n "$YES" ]] && {
     echo ">> $@. "
+    :
   } || {
     read -n1 -p ">> $@? " r
     grep -qi '^y' <<< "${r}" || die 'User quit'
+    :
   }
   clear
   return 0
@@ -66,7 +68,7 @@ git fetch pvalena || {
   git fetch pvalena || warn "Failed to fetch pvalena"
 }
 
-git log -p
+git show | colordiff
 echo
 
 git diff | colordiff
@@ -221,7 +223,7 @@ ask 'Continue'
 
 git commit -am "$M" || die "Failed to commit with message '$M'"
 
-git show
+git show | colordiff
 echo
 git status
 
