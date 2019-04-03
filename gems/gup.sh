@@ -4,6 +4,7 @@ bash -n "$0" || exit 1
 
 # clean
 EXT="tgz|gem|tar.gz|tar.xz|tar|tar.bz2"
+CRB="`readlink -e "$(readlink -e "$PWD")/cr-build.sh"`"
 
 die () {
   echo
@@ -31,17 +32,15 @@ ask () {
   } || {
     read -n1 -p ">> $@? " r
     grep -qi '^y' <<< "${r}" || die 'User quit'
+    clear
     :
   }
-  clear
   return 0
 }
 
 [[ "$1" == "-f" ]] && {
-  die 'NYI'
-  shift
-	FED="$1"
-	shift
+	FED="$2"
+	shift 2
 } || FED=31 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-m" ]] && {
@@ -85,14 +84,14 @@ git checkout rebase || {
 
 git reset --hard origin/master || die 'Failed to reset git'
 
-E="`fedpkg --release master srpm`" || {
+E="`fedpkg --release $FED srpm`" || {
   warn "Failed to recreate old srpm" "$E"
   warn 'Trying to remove' 'richdeps'
 
   sed -i 's/^Recommends: /Requires: /' *.spec
   sed -i '/^Suggests: / s/^/#/' *.spec
 
-  E="`fedpkg --release master srpm`" || {
+  E="`fedpkg --release $FED srpm`" || {
     die "Failed to recreate old srpm(2)" "$E"
   }
 }
@@ -229,12 +228,12 @@ git status
 
 ask 'Run copr build'
 mc=rubygems
-[[ -x ../cr-build.sh ]] && {
-  ../cr-build.sh $mc
+[[ -n "$CBR" && -x $CBR ]] && {
+  $CBR $mc
   :
 } || {
   rm *.src.rpm
-  fedpkg --release master srpm
+  fedpkg --release $FED srpm
   copr-cli build "$mc" *.src.rpm
 }
 
@@ -254,7 +253,7 @@ while :; do
   rm *.src.rpm
   rm result/*
 
-  fedpkg --release master srpm || continue
+  fedpkg --release $FED srpm || continue
 
   mock -n --old-chroot --resultdir=result --bootstrap-chroot -r fedora-rawhide-x86_64 *.src.rpm \
     && break
