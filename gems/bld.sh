@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# !! USE UPDATED FEDORA VERSION INSTEAD !!
-#
-# ./bld.sh [-b BRANCH][-r BRANCH]
-#   -b  checkout branch $BRANCH
-#   -r  stash & reset to origin/$BRANCH (see '-b'; defaults to HEAD)
+# ./bld.sh [-b BRANCH][-m BRANCH][-r]
+#   -b  checkout branch $BRANCH_B
+#   -m  stash & merge $BRANCH_M (defaults to -)
+#   -r  stash & reset to origin/$BRANCH_B (defaults to HEAD; see '-b')
 #   -s  DO NOT run scratch-build
 #
 
@@ -19,8 +18,21 @@ die () {
 }
 
 [[ "$1" == "-b" ]] && { BR="$2" ; shift 2 ; } || BR=
+[[ "$1" == "-m" ]] && { MB="$2" ; shift 2 ; } || MB=
 [[ "$1" == "-r" ]] && { RE='yy' ; shift 1 ; } || RE=
 [[ "$1" == "-s" ]] && { SB='yy' ; shift 1 ; } || SB=
+
+( klist -a | grep -q 'FEDORAPROJECT\.ORG$' ) || {
+  psg -k krenew || :
+  kinit pvalena@FEDORAPROJECT.ORG  -l 30d
+  psg krenew || krenew -i -K 60 -L -b
+}
+
+[[ -z "$RE" ]] || {
+  set -x
+    git stash
+  { set +x ; } &>/dev/null
+}
 
 [[ -z "$BR" ]] && BR=HEAD || {
   set -x
@@ -33,12 +45,26 @@ die () {
 
 git fetch
 
+[[ -z "$MB" ]] || {
+  set -x
+    git merge "$MB"
+    git status -uno 2>&1 | grep -q "^nothing to commit"
+  { set +x ; } &>/dev/null
+}
+
 [[ -z "$RE" ]] || {
   set -x
     git stash || die 'stash git'
     git reset --hard "origin/$BR" || die "reset git: $BR"
   { set +x ; } &>/dev/null
 }
+
+fedpkg sources || :
+d="`basename "$PWD"`"
+
+grep -q '^rubygem\-' <<< "$d" \
+  && gem fetch "$(cut -d'-' -f2- <<< "$d")" \
+  || :
 
 for y in {1..10}; do
   [[ -z "$SB" ]] && {
@@ -49,7 +75,7 @@ for y in {1..10}; do
     false
   } || {
     set -x
-      fedpkg new-sources `cut -d'(' -f2 < sources | cut -d')' -f1` \
+      fedpkg new-sources `cut -d'(' -f2 < sources | cut -d')' -f1 | cut -d' ' -f2-` \
         && fedpkg push \
         && fedpkg build \
         && exit 0 \
