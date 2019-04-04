@@ -23,9 +23,8 @@ die () {
 [[ "$1" == "-s" ]] && { SB='yy' ; shift 1 ; } || SB=
 
 ( klist -a | grep -q 'FEDORAPROJECT\.ORG$' ) || {
-  psg -k krenew || :
+  pgrep -x krenew || krenew -i -K 60 -L -b
   kinit pvalena@FEDORAPROJECT.ORG  -l 30d
-  psg krenew || krenew -i -K 60 -L -b
 }
 
 [[ -z "$RE" ]] || {
