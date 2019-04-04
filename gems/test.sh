@@ -25,6 +25,13 @@ fail () {
 me="pvalena"
 mc="rubygems"
 gp='rubygem-'
+
+[[ "$1" == '-c' ]] && {
+  COP="$1"
+  shift
+  :
+} || COP=
+
 tb='copr'
 rm='copr/master'
 
@@ -36,27 +43,37 @@ rm='copr/master'
 #}
 
 p="$1"
-[[ -n "$p" ]]
-[[ -n "`grep "^$gp" <<< "$p"`" ]] && g="$p" || g="$gp$p"
-[[ -d "$g" ]] || fedpkg --user "$me" clone -a "$g"
+[[ -n "$p" ]] && {
+  [[ -n "`grep "^$gp" <<< "$p"`" ]] && g="$p" || g="$gp$p"
+  [[ -d "$g" ]] || fedpkg --user "$me" clone -a "$g"
+  [[ -d "$g" ]]
+  cd "$g"
+  :
+} || {
+  g="`basename "$PWD"`"
+  p="$(cut -d'-' -f2- <<< "$g")"
+}
 
-cd "$g"
+[[ -n "$p" && -n "$g" ]]
+grep "^$gp" <<< "$g"
 
-git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$g.git" ||:
-#for x in {1..2}; do
-#
-#  git remote remove "$tb"
-#done
-gitf "$tb"
+[[ -z "$COP" ]] || {
+  git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$g.git" ||:
+  #for x in {1..2}; do
+  #
+  #  git remote remove "$tb"
+  #done
+  gitf "$tb"
 
-#git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$g" ||:
-#gitf "$me"
+  #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$g" ||:
+  #gitf "$me"
 
-gitc "$tb" \
- || gitcb "$tb" -t "$rm"
+  gitc "$tb" \
+   || gitcb "$tb" -t "$rm"
 
-[[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
-gitrh "$rm"
+  [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
+  gitrh "$rm"
+}
 
 rm *.src.rpm ||:
 rm -rf result/ ||:
@@ -71,8 +88,7 @@ done
 
 mar=''
 for c in "{x86_64,noarch}" {x86_64,noarch} ; do
-  x="$(bash -c "ls result/*.${c}.rpm")"
-  [[ -n "$x" ]] || continue
+  x="$(bash -c "ls result/*.${c}.rpm")" || continue
 
   mck -i $x && {
     [[ "$c" == "{x86_64,noarch}" ]] && break
