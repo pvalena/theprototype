@@ -1,21 +1,42 @@
-#!/bin/zsh
+#!/bin/bash
 
-set -e
-
+set -xe
+bash -n "$0"
 f='build.log'
-r=
+l='--release'
 
-gitb -u "origin/`gitb | grep '^*' | cut -d' ' -f2-`" \
-  || r='--release master'
 
-[[ "$1" == '-c' ]] && {
-  rm *.src.rpm
-  bash -c "fedpkg $r srpm"
+srpm () {
+  local x=
+  [[ -n "$1" ]] && x="$l $1"
+  bash -c "fedpkg $x srpm" && return 0
+  return 1
 }
 
-[[ -r "`ls *.src.rpm | head -1`" ]] || exit 1
+[[ "$1" == '-c' ]] && CS=y && shift
 
-set +e
+r="$1"
+[[ -n "$r" ]] || {
+  r="`gitb | grep '^*' | cut -d' ' -f2-`"
+  grep -q '^rebase-' <<< "$r" && r="`cut -d'-' -f2- <<< "$r"`"
+}
+
+[[ -z "$CS" && -n "`*.src.rpm`" ]] || {
+  rm *.src.rpm ||:
+
+  c=
+  for t in "$r" '' 'master'; do
+    srpm "$t" && c="$t" && break
+
+    [[ -z "$1" ]] || exit 5
+  done
+  r="$c"
+}
+r="$l $r"
+
+[[ -n "`ls *.src.rpm`" ]] || exit 6
+
+set +xe
 
 bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | tee -a /dev/stderr \
