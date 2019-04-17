@@ -39,9 +39,14 @@ ask () {
 }
 
 [[ "$1" == "-f" ]] && {
-	FED="$2"
+	REL="f$2"
+	SUF="-$REL"
 	shift 2
-} || FED='f31' # <<<<<<<<<<<<<<<
+	:
+} || {
+  REL='master'
+  SUF=
+}
 
 [[ "$1" == "-m" ]] && {
 	MOC="$1"
@@ -61,10 +66,10 @@ ask () {
 
 clean
 git fetch origin || die 'Failed to git fetch origin'
-git fetch pvalena || {
-  git remote -v | grep -q pvalena \
-    || git remote add pvalena "git+ssh://pvalena@pkgs.fedoraproject.org/forks/pvalena/rpms/`basename "$PWD"`.git"
-  git fetch pvalena || warn "Failed to fetch pvalena"
+git fetch $ME || {
+  git remote -v | grep -q $ME \
+    || git remote add $ME "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/`basename "$PWD"`.git"
+  git fetch $ME || warn "Failed to fetch '$ME'"
 }
 
 git show | colordiff
@@ -78,20 +83,21 @@ ask "We'll stash & reset the repository, ok"
 
 git stash || die 'Failed to stash git'
 
-git checkout rebase || {
-  git checkout -b rebase || warn "Failed to switch to rebase branch"
+git checkout $REM || {
+  git checkout -b $REM || warn "Failed to switch to branch '$REM'"
 }
+git push -u "$ME/$REM" || warn "Failed to push '$ME/$REM'"
 
-git reset --hard origin/master || die 'Failed to reset git'
+git reset --hard origin/$REL || die 'Failed to reset git'
 
-E="`fedpkg --release $FED srpm`" || {
+E="`fedpkg --release $REL srpm`" || {
   warn "Failed to recreate old srpm" "$E"
   warn 'Trying to remove' 'richdeps'
 
   sed -i 's/^Recommends: /Requires: /' *.spec
   sed -i '/^Suggests: / s/^/#/' *.spec
 
-  E="`fedpkg --release $FED srpm`" || {
+  E="`fedpkg --release $REL srpm`" || {
     die "Failed to recreate old srpm(2)" "$E"
   }
 }
@@ -233,7 +239,7 @@ mc=rubygems
   :
 } || {
   rm *.src.rpm
-  fedpkg --release $FED srpm
+  fedpkg --release $REL srpm
   copr-cli build "$mc" *.src.rpm
 }
 
@@ -253,7 +259,7 @@ while :; do
   rm *.src.rpm
   rm result/*
 
-  fedpkg --release $FED srpm || continue
+  fedpkg --release $REL srpm || continue
 
   mock -n --old-chroot --resultdir=result --bootstrap-chroot -r fedora-rawhide-x86_64 *.src.rpm \
     && break
