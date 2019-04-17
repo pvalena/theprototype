@@ -35,8 +35,8 @@ die () {
 
 [[ -z "$BR" ]] && BR=HEAD || {
   set -x
-    fedpkg switch-branch "$BR"
     git checkout "$BR"
+    fedpkg switch-branch "$BR"
     git branch -u "origin/$BR"
     git status 2>&1 | grep -q "On branch $BR$"
   { set +x ; } &>/dev/null
