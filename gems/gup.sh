@@ -2,9 +2,12 @@
 
 bash -n "$0" || exit 1
 
-# clean
+# const
 EXT="tgz|gem|tar.gz|tar.xz|tar|tar.bz2"
 CRB="`readlink -e "$(readlink -e "$PWD")/cr-build.sh"`"
+ME=pvalena
+REM=rebase
+ORG=origin
 
 die () {
   echo
@@ -38,14 +41,14 @@ ask () {
   return 0
 }
 
+
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
-	SUF="-$REL"
+	REM="${REM}-$REL"
 	shift 2
 	:
 } || {
   REL='master'
-  SUF=
 }
 
 [[ "$1" == "-m" ]] && {
@@ -64,14 +67,24 @@ ask () {
 	shift
 } || YES=
 
+# sanity check
+rpm -q colordiff || die 'colordiff is not installed'
+[[ -n "$ME" ]] || die "ME shloud be defined"
+[[ -n "$REM" ]] || die "REM shloud be defined"
+[[ -n "$ORG" ]] || die "ORG shloud be defined"
+[[ -n "$MOC" ]] || die "MOC shloud be defined"
+[[ -n "$REL" ]] || die "REL shloud be defined"
+
+# remote
 clean
-git fetch origin || die 'Failed to git fetch origin'
-git fetch $ME || {
-  git remote -v | grep -q $ME \
+git fetch "$ORG" || die 'Failed to git fetch $ORG'
+git fetch "$ME" || {
+  git remote -v | grep -q "$ME" \
     || git remote add $ME "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/`basename "$PWD"`.git"
-  git fetch $ME || warn "Failed to fetch '$ME'"
+  git fetch "$ME" || warn "Failed to fetch '$ME'"
 }
 
+# status
 git show | colordiff
 echo
 
@@ -81,15 +94,17 @@ echo
 git status
 ask "We'll stash & reset the repository, ok"
 
+#reset
 git stash || die 'Failed to stash git'
 
-git checkout $REM || {
-  git checkout -b $REM || warn "Failed to switch to branch '$REM'"
+git checkout "$REM" || {
+  git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
 }
 git push -u "$ME/$REM" || warn "Failed to push '$ME/$REM'"
 
-git reset --hard origin/$REL || die 'Failed to reset git'
+git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
+# srpm
 E="`fedpkg --release $REL srpm`" || {
   warn "Failed to recreate old srpm" "$E"
   warn 'Trying to remove' 'richdeps'
@@ -107,6 +122,7 @@ clean
 
 X="`readlink -e *.spec`" || die 'Spec file not found'
 
+# version
 ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
 [[ "$ov" && "$ov" == "$(rev <<< "$sn" | cut -d'-' -f2 | rev)" ]] || die "Old version inconsistency- should be: '$ov'"
 
@@ -115,6 +131,7 @@ nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
 [[ "$nam" == "$(rev <<< "$sn" | cut -d'-' -f3- | rev)" ]] || die "Package name inconsistency- should be: '$nam'"
 grep '^rubygem-' <<< "$nam" && nam="`cut -d'-' -f2- <<< "$nam"`"
 
+# new
 gem fetch "$nam" $ver || die "gem fetch failed"
 f="$(basename -s '.gem' "`ls *.gem`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
@@ -136,13 +153,14 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 
 P=''
 # Could be modified; check
-gits -uno | grep -q '^nothing to commit ' || {
+git status -uno | grep -q '^nothing to commit ' || {
   # It is let's remember the original one
   git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
   P="`git format-patch HEAD^`"
   git reset --soft HEAD^
 }
 
+# commit
 M="Update to $nam ${ver}."
 c="rpmdev-bumpspec -c '$M'"
 
@@ -154,6 +172,7 @@ bash -c "$c -n '$ver' '$X'" || {
     || die "Failed to bump spec with message '$M'"
 }
 
+# sources
 gcom=' (tar|git|cp|mv|cd) '
 grep -A 5 ' git clone ' "$X" | grep '^#' |  grep -E "$gcom" \
   | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
@@ -222,6 +241,7 @@ rm sources-new
   rm "$P"
 }
 
+# compare
 echo
 gem compare -bk "$nam" "$ov" "$ver"
 ask 'Continue'
@@ -232,6 +252,9 @@ git show | colordiff
 echo
 git status
 
+## TODO: push + PR
+
+# build
 ask 'Run copr build'
 mc=rubygems
 [[ -n "$CBR" && -x $CBR ]] && {
