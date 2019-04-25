@@ -76,7 +76,7 @@ for y in {1..10}; do
     set -x
       fedpkg new-sources `cut -d'(' -f2 < sources | cut -d')' -f1 | cut -d' ' -f2-` \
         && fedpkg push \
-        && fedpkg build \
+        && fedpkg build --skip-nvr-check \
         && exit 0 \
         || : "Build failed!"
     { set +x ; } &>/dev/null
