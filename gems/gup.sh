@@ -75,7 +75,7 @@ ask () {
 [[ -n "$MOC" ]] || die "MOC shloud be defined"
 [[ -n "$REL" ]] || die "REL shloud be defined"
 
-[[ -n "`rpm -q $CDF &>/dev/null`" || {
+rpm -q "$CDF" &>/dev/null || {
   warn "$CDF is not installed"
   CDF=cat
 }
