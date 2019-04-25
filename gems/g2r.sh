@@ -2,7 +2,6 @@
 
  . lpcsbclass
 
-
 mar='--new-chroot --bootstrap-chroot'
 mck () {
   local c=
@@ -81,14 +80,15 @@ gem2rpm -o "$s" "$f.gem" || die "spec"
  		echo
  	}
 
- 	mck -clean
- 	mck -init
+ 	mck -clean -q
+ 	mck -init -q
 
   echo
   echo "Now we'll be mocking RPM in loop (on failure)."
   echo "Press N to Quit"
   echo
 
+set -x
   bask "Ready" || exit 1
 
  	SUCC=
