@@ -32,7 +32,7 @@ DIR="$(readlink -e "`dirname "$0"`")"
   mkdir -p bak || die 'bak dir'
   mv -v orig "bak/`date -Iseconds`"
 }
-mkdir orig || die 'orig dir'
+mkdir -p orig || die 'orig dir'
 
 os="`ls *.spec`" || die 'orig spec'
 of="`ls *.src.rpm`" || die 'orig srpm'
