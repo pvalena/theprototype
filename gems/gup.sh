@@ -8,6 +8,7 @@ CRB="`readlink -e "$(readlink -e "$PWD")/cr-build.sh"`"
 ME=pvalena
 REM=rebase
 ORG=origin
+CDF=colordiff
 
 die () {
   echo
@@ -68,12 +69,16 @@ ask () {
 } || YES=
 
 # sanity check
-rpm -q colordiff || die 'colordiff is not installed'
 [[ -n "$ME" ]] || die "ME shloud be defined"
 [[ -n "$REM" ]] || die "REM shloud be defined"
 [[ -n "$ORG" ]] || die "ORG shloud be defined"
 [[ -n "$MOC" ]] || die "MOC shloud be defined"
 [[ -n "$REL" ]] || die "REL shloud be defined"
+
+[[ -n "`rpm -q $CDF &>/dev/null`" || {
+  warn "$CDF is not installed"
+  CDF=cat
+}
 
 # remote
 clean
@@ -85,10 +90,10 @@ git fetch "$ME" || {
 }
 
 # status
-git show | colordiff
+git show | $CDF
 echo
 
-git diff | colordiff
+git diff | $CDF
 echo
 
 git status
@@ -100,7 +105,7 @@ git stash || die 'Failed to stash git'
 git checkout "$REM" || {
   git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
 }
-git push -u "$ME/$REM" || warn "Failed to push '$ME/$REM'"
+git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
 git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
@@ -248,7 +253,7 @@ ask 'Continue'
 
 git commit -am "$M" || die "Failed to commit with message '$M'"
 
-git show | colordiff
+git show | $CDF
 echo
 git status
 
