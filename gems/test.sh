@@ -83,7 +83,7 @@ fedpkg --release master srpm
 
 for c in --{clean,init} *.src.rpm; do
   mck $c
-  sleep 1
+  sleep 0.1
 done
 
 mar=''
