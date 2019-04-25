@@ -5,7 +5,6 @@ bash -n "$0"
 f='build.log'
 l='--release'
 
-
 srpm () {
   local x=
   [[ -n "$1" ]] && x="$l $1"
@@ -21,7 +20,7 @@ r="$1"
   grep -q '^rebase-' <<< "$r" && r="`cut -d'-' -f2- <<< "$r"`"
 }
 
-[[ -z "$CS" && -n "`*.src.rpm`" ]] || {
+[[ -z "$CS" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
 
   c=
