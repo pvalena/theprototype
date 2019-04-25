@@ -97,10 +97,13 @@ for c in "{x86_64,noarch}" {x86_64,noarch} ; do
     || fail "Install $c"
 done
 
-for c in "rpm -q \"$g\"" "ruby -e \"require '\''$p'\''\"" ; do
-  mck --unpriv --chroot "$c" \
-    || fail "$c"
-done
+[[ $R -eq 0 ]] && {
+  for c in "rpm -q \"$g\"" "ruby -e \"require '\''$p'\''\"" ; do
+    mck --unpriv --chroot "$c" \
+      || fail "$c"
+  done
+
+}||:
 
 rpmlint result/*.rpm | sort -u
 
