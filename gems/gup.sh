@@ -3,13 +3,19 @@
 bash -n "$0" || exit 1
 
 # const
-EXT="tgz|gem|tar.gz|tar.xz|tar|tar.bz2"
-CRB="`readlink -e "$(readlink -e "$PWD")/cr-build.sh"`"
+CLEAN_EXT="tgz gem gz xz tar bz2 rpm"
 ME=pvalena
 REM=rebase
 ORG=origin
-CDF=colordiff
 
+# dynamic
+CDF="`which colordiff`"
+LOC="$(readlink -e "$PWD")"
+CRB="${LOC}/cr-build.sh"
+KJB="${LOC}/kj-build.sh"
+TST="${LOC}/test.sh"
+
+# helpers
 die () {
   echo
   warn "Error" "$1"
@@ -22,27 +28,44 @@ warn () {
 }
 
 clean () {
-  for e in rpm `tr '|' ' ' <<< "$EXT"`; do
+  local e
+  for e in $CLEAN_EXT; do
     rm -f *.$e
   done
 }
 
 ask () {
   local r=
-  echo
-  [[ -n "$YES" ]] && {
-    echo ">> $@. "
-    :
-  } || {
-    read -n1 -p ">> $@? " r
-    grep -qi '^y' <<< "${r}" || die 'User quit'
-    clear
-    :
-  }
-  return 0
+  local s=
+  [[ "$1" == '-s' ]] && s="$1" && shift
+
+  for x in {1..10}; do
+    echo
+    [[ -n "$YES" ]] && {
+      echo ">> $@. "
+      return 0
+      :
+    } || {
+      read -n1 -p ">> $@? " r
+
+      grep -qi '^y' <<< "${r}" && {
+        clear
+        return 0
+        :
+      }||:
+
+      grep -qi '^n' <<< "${r}" && {
+        break
+        :
+      }||:
+    }
+  done
+
+  [[ -n "$s" ]] || die 'User quit'
+  return 1
 }
 
-
+# args
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
 	REM="${REM}-$REL"
@@ -68,19 +91,20 @@ ask () {
 	shift
 } || YES=
 
-# sanity check
+# sanity checks
 [[ -n "$ME" ]] || die "ME shloud be defined"
 [[ -n "$REM" ]] || die "REM shloud be defined"
 [[ -n "$ORG" ]] || die "ORG shloud be defined"
 [[ -n "$MOC" ]] || die "MOC shloud be defined"
 [[ -n "$REL" ]] || die "REL shloud be defined"
 
-rpm -q "$CDF" &>/dev/null || {
-  warn "$CDF is not installed"
-  CDF=cat
-}
+# usability
+[[ -x "$CDF" ]] || { warn "CDF shloud be defined and executable" ; CDF=cat ; }
+[[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
+[[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
 
-# remote
+
+# set remote
 clean
 git fetch "$ORG" || die 'Failed to git fetch $ORG'
 git fetch "$ME" || {
@@ -92,14 +116,13 @@ git fetch "$ME" || {
 # status
 git show | $CDF
 echo
-
 git diff | $CDF
 echo
-
 git status
-ask "We'll stash & reset the repository, ok"
 
-#reset
+ask "Stash & reset the repository"
+
+# reset
 git stash || die 'Failed to stash git'
 
 git checkout "$REM" || {
@@ -108,6 +131,9 @@ git checkout "$REM" || {
 git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
 git reset --hard "$ORG/$REL" || die 'Failed to reset git'
+
+# current
+X="`readlink -e *.spec`" || die 'Spec file not found'
 
 # srpm
 E="`fedpkg --release $REL srpm`" || {
@@ -121,11 +147,7 @@ E="`fedpkg --release $REL srpm`" || {
     die "Failed to recreate old srpm(2)" "$E"
   }
 }
-
 sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
-clean
-
-X="`readlink -e *.spec`" || die 'Spec file not found'
 
 # version
 ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
@@ -159,7 +181,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 P=''
 # Could be modified; check
 git status -uno | grep -q '^nothing to commit ' || {
-  # It is let's remember the original one
+  # Let's remember the current spec modifications
   git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
   P="`git format-patch HEAD^`"
   git reset --soft HEAD^
@@ -257,53 +279,33 @@ git show | $CDF
 echo
 git status
 
+
 ## TODO: push + PR
 
 # build
-ask 'Run copr build'
-mc=rubygems
-[[ -n "$CBR" && -x $CBR ]] && {
-  $CBR $mc
-  :
-} || {
-  rm *.src.rpm
-  fedpkg --release $REL srpm
-  copr-cli build "$mc" *.src.rpm
-}
+ask -s 'Run koji build' && {
+  bash -c "$KJB"
+}||:
 
-[[ -z "$MOC" ]] || exit 0
-ask 'Run mock build'
+ask -s 'Run copr build' && {
+  bash -c "$CRB rubygems"
+}||:
 
-for c in 'clean' 'init' 'pm-cmd update'; do
-  mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --$c || die "Failed to '$c' mock"
-done
+ask -s 'Run checks' && {
+  bash -c "$TST"
+}||:
 
-while :; do
-  # Workaround for RHEL7 incapability for rich deps
-  #sed -i 's/^Recommends: /Requires: /' *.spec
-  #sed -i '/^Suggests: / s/^/#/' *.spec
+# TODO: port from rev.sh
 
-  rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/build/SRPMS/*.rpm
-  rm *.src.rpm
-  rm result/*
-
-  fedpkg --release $REL srpm || continue
-
-  mock -n --old-chroot --resultdir=result --bootstrap-chroot -r fedora-rawhide-x86_64 *.src.rpm \
-    && break
-
-  ask 'Failed, repeat' || exit 1
-done
+# unfinished; port
+ask 'Run install'
 
 rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/*.rpm
-rm *.src.rpm
 
 ls result/*.rpm | grep -E '\.(noarch|x86_64)\.rpm$' \
   | xargs sudo cp -vt /var/lib/mock/fedora-rawhide-x86_64/root/builddir \
   && sudo mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --chroot 'rpm -U /builddir/*.rpm ; rpm -v --reinstall /builddir/*.rpm' \
   || die "Failed to install resulting packages"
 
+ask 'Clean'
 mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --clean || warn "Failed to clean mock"
-
-echo "Rpmlint:"
-rpmlint result/*.rpm
