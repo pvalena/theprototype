@@ -31,7 +31,8 @@ r="$1"
   done
   r="$c"
 }
-r="$l $r"
+
+[[ -n "$r" ]] && r="$l $r"
 
 [[ -n "`ls *.src.rpm`" ]] || exit 6
 
