@@ -12,7 +12,7 @@ bash -n "$0"
       | grep -q running ; do
     sleep 300
   done
-}
+}||:
 
 c="$1"
 [[ -n "$c" ]]
