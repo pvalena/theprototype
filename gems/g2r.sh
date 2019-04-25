@@ -2,6 +2,22 @@
 
  . lpcsbclass
 
+
+mar='--new-chroot --bootstrap-chroot'
+mck () {
+  local c=
+  [[ -n "$cnf" ]] && c="-r $cnf"
+
+  local a="$1"
+  shift
+  grep -qE '\S*\.src\.rpm$' <<< "$a" || a="-$a"
+
+  while [[ -n "$1" ]]; do a="$a '$1'" ; shift ; done
+
+  bash -c "set -x ; mock $mar -n --result=./result $c $a $@"
+  return $?
+}
+
 [[ "$1" == "-v" ]] && {
   VER="$1"
   shift
@@ -23,9 +39,9 @@
 } || KEEP=
 
 [[ "$1" == "-e" ]] && {
-  FED="$1"
+  FED="f$1"
   shift
-} || FED=30 # <<<<<<<<<<<<<<<
+} || FED=master # <<<<<<<<<<<<<<<
 
 [[ "$1" ]] || die "arg"
 
@@ -65,8 +81,8 @@ gem2rpm -o "$s" "$f.gem" || die "spec"
  		echo
  	}
 
- 	mock -q --clean
- 	mock -qn --init
+ 	mck -clean
+ 	mck -init
 
   echo
   echo "Now we'll be mocking RPM in loop (on failure)."
@@ -77,16 +93,18 @@ gem2rpm -o "$s" "$f.gem" || die "spec"
 
  	SUCC=
  	while echo; do
-		fedpkg --release f$FED srpm || die "FedPkg"
+		fedpkg --release $FED srpm || die "FedPkg"
 
 		rm -rf result/
 
-		mock $VER --resultdir="`pwd`/result" -n *.src.rpm && {
+		mck *.src.rpm && {
 			echo -e "\nRebuild ok"
 
-			mock $VER --remove "rubygem-$f"
+			mar='--new-chroot'
 
-			mock $VER --install `ls result/*.x86_64.rpm` `ls result/*.noarch.rpm` && {
+			mck -remove "rubygem-$f"
+
+			mck i `ls result/*.x86_64.rpm` `ls result/*.noarch.rpm` && {
 				echo -e "\nInstall ok!"
 				SUCC=y
 				break
@@ -114,6 +132,6 @@ gem2rpm -o "$s" "$f.gem" || die "spec"
  	}
 }
 
-[[ "$FAST" ]] || {
-	fedpkg --release f$FED scratch-build --srpm || die "Scratch"
-}
+#[[ "$FAST" ]] || {
+#	fedpkg --release $FED scratch-build --srpm || die "Scratch"
+#}
