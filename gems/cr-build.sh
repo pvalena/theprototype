@@ -24,6 +24,7 @@ p="$(basename "$PWD")"
 [[ -n "$p" ]]
 
 rm *.src.rpm ||:
+# this should be same as in kj-build. Let it create the srpm, maybe?
 fedpkg --dist f31 srpm
 
 { set +xe ; } &>/dev/null
