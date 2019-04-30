@@ -18,18 +18,40 @@ r="$1"
 [[ -n "$r" ]] || {
   r="`gitb | grep '^*' | cut -d' ' -f2-`"
   grep -q '^rebase-' <<< "$r" && r="`cut -d'-' -f2- <<< "$r"`"
+  grep -q '^rebase$' <<< "$r" && r="master"
 }
 
 [[ -z "$CS" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
 
-  c=
-  for t in "$r" '' 'master'; do
-    srpm "$t" && c="$t" && break
+  for i in 0 1; do
+    # $r already specified
+    [[ -n "$1" ]] && {
+      srpm "$r" && break
+      :
+    } || {
+      s=
+      for t in "$r" '' 'master'; do
+        srpm "$t" && {
+          s="$t"
+          break
+        }||:
+      done
 
-    [[ -z "$1" ]] || exit 5
+      # success
+      [[ -z "$s" ]] || {
+        r="$s"
+        break
+      }
+    }
+
+    # Failed
+    [[ "$i" -eq 0 ]] || exit 7
+
+    # Try without richdeps
+    sed -i 's/^Recommends: /Requires: /' *.spec
+    sed -i '/^Suggests: / s/^/#/' *.spec
   done
-  r="$c"
 }
 
 [[ -n "$r" ]] && r="$l $r"
@@ -49,8 +71,32 @@ bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | sort -u \
   | while read b; do
       z="`rev <<< "$b" | cut -c -4 | rev`"
-      let 'z=z+0'
       rm "$f"
-      fastdown "https://kojipkgs.fedoraproject.org/work/tasks/$z/$b/$f"
+      fastdown "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/$f"
       lss "$f"
    done
+
+
+exit 0
+
+# TODO: adopt one approach
+O="`copr-cli build $c *.src.rpm 2>&1 | tee /dev/stderr`" && R=0 || R=1
+
+b="`echo "$O" | grep '^Created builds: ' | cut -d' ' -f3`"
+[[ -n "$b" ]] || exit 1
+grep -qE '^[0-9]*' <<< "$b" || exit 3
+
+[[ -t 1 ]] && d=lss || d=cat
+
+grep -q succeeded <<< "$O" || {
+  for l in build root; do
+    (
+      echo "$O"
+      curl -#Lk "https://copr-be.cloud.fedoraproject.org/results/pvalena/${c}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz" \
+        | zcat
+    ) \
+    | uniq | $d
+  done
+}
+
+exit $R
