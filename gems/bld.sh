@@ -35,8 +35,10 @@ die () {
 
 [[ -z "$BR" ]] && BR=HEAD || {
   set -x
-    git checkout "$BR"
-    fedpkg switch-branch "$BR"
+    git checkout "$BR" || {
+      fedpkg switch-branch "$BR"
+      git checkout "$BR"
+    }
     git branch -u "origin/$BR"
     git status 2>&1 | grep -q "On branch $BR$"
   { set +x ; } &>/dev/null
@@ -44,17 +46,17 @@ die () {
 
 git fetch
 
-[[ -z "$MB" ]] || {
-  set -x
-    git merge "$MB"
-    git status -uno 2>&1 | grep -q "^nothing to commit"
-  { set +x ; } &>/dev/null
-}
-
 [[ -z "$RE" ]] || {
   set -x
     git stash || die 'stash git'
     git reset --hard "origin/$BR" || die "reset git: $BR"
+  { set +x ; } &>/dev/null
+}
+
+[[ -z "$MB" ]] || {
+  set -x
+    git merge "$MB"
+    git status -uno 2>&1 | grep -q "^nothing to commit"
   { set +x ; } &>/dev/null
 }
 
