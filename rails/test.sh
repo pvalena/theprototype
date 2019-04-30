@@ -62,6 +62,8 @@ usage () {
 
 [[ '-t' == "$1" ]] && { shift ; T='--enablerepo=updates-testing' ; } || T=
 
+[[ '-v' == "$1" ]] && { shift ; MAR="-v $MAR" ; } ||:
+
 [[ '--' == "$1" ]] && shift
 
  #echo rubygem-{spring-watcher-listen,listen,rails,sqlite3,coffee-rails,sass-rails,uglifier,jquery-rails,turbolinks,jbuilder,therubyracer,sdoc,spring,byebug,web-console,io-console,bigdecimal} \
@@ -83,10 +85,14 @@ usage () {
   mock $MAR "$@" -n $T -i $I || die 'additional install failed'
 }
 
-mock $MAR "$@" -n $T --unpriv --chroot "cd && rm -rf app/"
+mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd && rm -rf app/"
+sleep 0.1
 
-mock $MAR "$@" -n $T --unpriv --chroot "cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap -f" || die "rails new failed"
+mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap -f" || die "rails new failed"
+sleep 0.1
 
 #mock $MAR "$@" -n $T --unpriv --chroot "cd && cd app && sed -i '/chromedriver-helper/ s/^/#/g' Gemfile" || die "Gemfile edits failed"
+#sleep 0.1
 
-mock $MAR "$@" -n $T --unpriv --chroot "cd && cd app && { ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | tee -a /dev/stderr | grep -q '<title>Ruby on Rails</title>' && echo OK && exit 0 ; cat rails.log ; } ; exit 1" || die '`rails server` failed'
+mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd ~/app || exit 7 ; ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | tee -a /dev/stderr | grep -q '<title>Ruby on Rails</title>' && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1" || die '`rails server` failed'
+sleep 0.1
