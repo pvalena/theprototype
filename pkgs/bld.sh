@@ -17,6 +17,9 @@ die () {
   exit 1
 }
 
+KJB="`dirname "$(readlink -e "$0")"`/kj-build.sh"
+[[ -x "$KJB" ]] || die "KJB '$KJB' not available."
+
 [[ "$1" == "-b" ]] && { BR="$2" ; shift 2 ; } || BR=
 [[ "$1" == "-m" ]] && { MB="$2" ; shift 2 ; } || MB=
 [[ "$1" == "-r" ]] && { RE='yy' ; shift 1 ; } || RE=
@@ -70,7 +73,8 @@ grep -q '^rubygem\-' <<< "$d" \
 for y in {1..10}; do
   [[ -z "$SB" ]] && {
     set -x
-      fedpkg scratch-build --srpm && SB=y
+      bash -c "set -xe ; echo | $KJB -c" && SB=y
+      git stash
     { set +x ; } &>/dev/null
     [[ -n "$SB" ]] || continue
     false
