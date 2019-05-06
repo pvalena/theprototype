@@ -87,6 +87,7 @@ b="`echo "$O" | grep '^Created builds: ' | cut -d' ' -f3`"
 grep -qE '^[0-9]*' <<< "$b" || exit 3
 
 [[ -t 1 ]] && d=lss || d=cat
+[[ -t 0 ]] || d=cat
 
 grep -q succeeded <<< "$O" || {
   for l in build root; do
