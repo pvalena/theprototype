@@ -32,7 +32,7 @@ KJB="`dirname "$(readlink -e "$0")"`/kj-build.sh"
 
 [[ -z "$RE" ]] || {
   set -x
-    git stash
+    git stash || die 'stash git'
   { set +x ; } &>/dev/null
 }
 
@@ -51,7 +51,6 @@ git fetch
 
 [[ -z "$RE" ]] || {
   set -x
-    git stash || die 'stash git'
     git reset --hard "origin/$BR" || die "reset git: $BR"
   { set +x ; } &>/dev/null
 }
