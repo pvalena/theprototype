@@ -12,7 +12,9 @@ srpm () {
   return 1
 }
 
-[[ "$1" == '-c' ]] && CS=y && shift
+d=lss
+[[ "$1" == '-c' ]] && d=cat && shift
+[[ "$1" == '-s' ]] && S=y && shift
 
 r="$1"
 [[ -n "$r" ]] || {
@@ -21,7 +23,7 @@ r="$1"
   grep -q '^rebase$' <<< "$r" && r="master"
 }
 
-[[ -z "$CS" && -n "`ls *.src.rpm`" ]] || {
+[[ -z "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
 
   for i in 0 1; do
@@ -58,6 +60,9 @@ r="$1"
 
 [[ -n "`ls *.src.rpm`" ]] || exit 6
 
+[[ -t 1 ]] || d=cat
+[[ -t 0 ]] || d=cat
+
 set +xe
 
 bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
@@ -73,13 +78,17 @@ bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
       z="`rev <<< "$b" | cut -c -4 | rev`"
       rm "$f"
       fastdown "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/$f"
-      lss "$f"
+      bash -c "$d '$f'"
    done
 
 
 exit 0
+###########################################################
+#             EXITED
+###########################################################
 
 # TODO: adopt one approach
+
 O="`copr-cli build $c *.src.rpm 2>&1 | tee /dev/stderr`" && R=0 || R=1
 
 b="`echo "$O" | grep '^Created builds: ' | cut -d' ' -f3`"
