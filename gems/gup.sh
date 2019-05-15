@@ -10,10 +10,11 @@ ORG=origin
 
 # dynamic
 CDF="`which colordiff`"
-LOC="$(readlink -e "$PWD")"
-CRB="${LOC}/cr-build.sh"
-KJB="${LOC}/kj-build.sh"
-TST="${LOC}/test.sh"
+LOC="$(readlink -e "$0")"
+LOC="`dirname "$(dirname "$LOC")"`"
+CRB="${LOC}/gems/cr-build.sh"
+KJB="${LOC}/pkgs/kj-build.sh"
+TST="${LOC}/gems/test.sh"
 
 # helpers
 die () {
@@ -66,6 +67,11 @@ ask () {
 }
 
 # args
+[[ "$1" == "-d" ]] && {
+	shift
+  set -x
+}
+
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
 	REM="${REM}-$REL"
@@ -99,7 +105,10 @@ ask () {
 [[ -n "$REL" ]] || die "REL shloud be defined"
 
 # usability
-[[ -x "$CDF" ]] || { warn "CDF shloud be defined and executable" ; CDF=cat ; }
+[[ -x "$CDF" ]] || {
+  warn "CDF shloud be defined and executable"
+  CDF=cat
+}
 [[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
 [[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
 
@@ -108,8 +117,8 @@ ask () {
 clean
 git fetch "$ORG" || die 'Failed to git fetch $ORG'
 git fetch "$ME" || {
-  git remote -v | grep -q "$ME" \
-    || git remote add $ME "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/`basename "$PWD"`.git"
+  git remote -v | grep -q "^$ME" \
+    || git remote add "$ME" "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/`basename "$PWD"`.git"
   git fetch "$ME" || warn "Failed to fetch '$ME'"
 }
 
@@ -160,7 +169,7 @@ grep '^rubygem-' <<< "$nam" && nam="`cut -d'-' -f2- <<< "$nam"`"
 
 # new
 gem fetch "$nam" $ver || die "gem fetch failed"
-f="$(basename -s '.gem' "`ls *.gem`")"
+f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
 [[ "$nam" == "`rev <<< "$f" | cut -d'-' -f2- | rev`" ]] || die "Failed gem name check of file: '$f'"
 
