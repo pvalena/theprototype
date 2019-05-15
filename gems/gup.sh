@@ -12,7 +12,7 @@ ORG=origin
 CDF="`which colordiff`"
 LOC="$(readlink -e "$0")"
 LOC="`dirname "$(dirname "$LOC")"`"
-CRB="${LOC}/gems/cr-build.sh"
+CRB="${LOC}/pkgs/cr-build.sh"
 KJB="${LOC}/pkgs/kj-build.sh"
 TST="${LOC}/gems/test.sh"
 
