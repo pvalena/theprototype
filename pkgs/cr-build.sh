@@ -30,7 +30,14 @@ x="${2}"
 p="$(basename "$PWD")"
 [[ -n "$p" ]]
 
-ls *.src.rpm &>/dev/null || fedpkg --dist f31 srpm
+ls *.src.rpm &>/dev/null || {
+  fedpkg --dist f31 srpm || {
+    echo "Warning: modifying spec file..." >&2
+    sed -i 's/^Recommends: /Requires: /' *.spec
+    sed -i '/^Suggests: / s/^/#/' *.spec
+    fedpkg --dist f31 srpm
+  }
+}
 
 { set +xe ; } &>/dev/null
 
@@ -44,14 +51,15 @@ grep -qE '^[0-9]*' <<< "$b" || exit 3
 [[ -t 0 ]] || d=cat
 
 grep -q succeeded <<< "$O" || {
-  for l in build root; do
-    (
-      echo "$O"
-      curl -#Lk "https://copr-be.cloud.fedoraproject.org/results/pvalena/${n}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz" \
-        | zcat
-    ) \
-    | uniq | $d
-  done
+  (
+    echo "$O"
+    for l in root build; do
+      u="https://copr-be.cloud.fedoraproject.org/results/pvalena/${n}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz"
+      echo -e "\n > $u" >&2
+      curl -sLk "$u" | zcat | uniq
+    done
+
+  ) | $d
 }
 
 exit $R
