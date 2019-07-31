@@ -35,6 +35,22 @@ clean () {
   done
 }
 
+# Note: everything should be commited before every srpm call
+srpm () {
+  E="`fedpkg --release $REL srpm`" || {
+    warn "Failed to recreate $1 srpm" "$E"
+    warn 'Trying to remove' 'richdeps'
+
+    sed -i 's/^Recommends: /Requires: /' *.spec
+    sed -i '/^Suggests: / s/^/#/' *.spec
+
+    E="`fedpkg --release $REL srpm`" || {
+      die "Failed to recreate $1 srpm(2)" "$E"
+    }
+  }
+  git reset --hard HEAD || die 'Failed to reset git(2)'
+}
+
 ask () {
   local r=
   local s=
@@ -141,24 +157,15 @@ git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
 git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
-# current
+# spec
 X="`readlink -e *.spec`" || die 'Spec file not found'
 
-# srpm
-E="`fedpkg --release $REL srpm`" || {
-  warn "Failed to recreate old srpm" "$E"
-  warn 'Trying to remove' 'richdeps'
-
-  sed -i 's/^Recommends: /Requires: /' *.spec
-  sed -i '/^Suggests: / s/^/#/' *.spec
-
-  E="`fedpkg --release $REL srpm`" || {
-    die "Failed to recreate old srpm(2)" "$E"
-  }
-}
+# old srpm
+srpm old
 sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
+rm *.src.rpm||:
 
-# version
+# old version
 ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
 [[ "$ov" && "$ov" == "$(rev <<< "$sn" | cut -d'-' -f2 | rev)" ]] || die "Old version inconsistency- should be: '$ov'"
 
@@ -187,16 +194,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   rm -rf "$nam/" || die "Failed to remove '$nam/'"
 }
 
-P=''
-# Could be modified; check
-git status -uno | grep -q '^nothing to commit ' || {
-  # Let's remember the current spec modifications
-  git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
-  P="`git format-patch HEAD^`"
-  git reset --soft HEAD^
-}
-
-# commit
+# bump
 M="Update to $nam ${ver}."
 c="rpmdev-bumpspec -c '$M'"
 
@@ -222,8 +220,7 @@ cmd=$( grep -A 3 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#'
   ask 'execute $cmd'
   bash -c "$cmd" || die 'Failed to execute $cmd'
 }
-
-# All output gets written into sources-new file here
+## All output gets written into sources-new file here
 for x in `spectool -A "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
   { find -mindepth 2 -type f -name "$x" | xargs -n1 -i mv -v "{}" . ; } 1>&2
 
@@ -271,18 +268,34 @@ done > sources-new
 grep -v '^$' sources-new > sources
 rm sources-new
 
+# commit
+git commit -am "$M" || die "Failed to commit with message '$M'"
+
+# new srpm
+srpm new
+
+# Not needed: Currently resetting
+## save diff from srpm creation
+#P=''
+## TODO: Could be different; check
+#git status -uno | grep -q '^nothing to commit ' || {
+#   Let's remember the current spec modifications
+#  git commit -am 'Rich deps fixup' || die "Failed to commit(2)"
+#  P="`git format-patch HEAD^`"
+#  git reset --soft HEAD^
+#}
 # Finished work on .spec file, revert temp/richdeps changes, if there are
-[[ -n "$P" && -r "$P" ]] && {
-  patch -p1 -R < "$P" || die "Failed to reverse-apply patch" "$P"
-  rm "$P"
-}
+#[[ -n "$P" && -r "$P" ]] && {
+#  patch -p1 -R < "$P" || die "Failed to reverse-apply patch" "$P"
+#  rm "$P"
+#}
 
 # compare
 echo
 gem compare -bk "$nam" "$ov" "$ver"
-ask 'Continue'
+ask 'Continue with commit ammend'
 
-git commit -am "$M" || die "Failed to commit with message '$M'"
+git commit -a --amend || die "Failed to amend"
 
 git show | $CDF
 echo
@@ -293,7 +306,7 @@ git status
 
 # build
 ask -s 'Run koji build' && {
-  bash -c "$KJB"
+  bash -c "$KJB -s"
 }||:
 
 ask -s 'Run copr build' && {
@@ -305,7 +318,7 @@ ask -s 'Run checks' && {
 }||:
 
 # TODO: port from rev.sh
-
+exit
 # unfinished; port
 ask 'Run install'
 
