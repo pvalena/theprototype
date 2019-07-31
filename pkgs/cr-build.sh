@@ -16,7 +16,7 @@ d=lss
 
   while copr-cli status $P \
       | tee -a /dev/stderr \
-      | grep -q running ; do
+      | grep -qv succeeded ; do
     sleep 300
   done
 }||:
@@ -40,6 +40,7 @@ ls *.src.rpm &>/dev/null || {
 }
 
 { set +xe ; } &>/dev/null
+date -Isec
 
 O="`copr-cli build $n *.src.rpm 2>&1 | tee /dev/stderr`" && R=0 || R=1
 

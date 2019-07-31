@@ -63,7 +63,8 @@ r="$1"
 [[ -t 1 ]] || d=cat
 [[ -t 0 ]] || d=cat
 
-set +xe
+{ set +xe ; } &>/dev/null
+date -Isec
 
 bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | tee -a /dev/stderr \
