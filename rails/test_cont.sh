@@ -52,13 +52,22 @@ read -r -d '' BSC << EOS||:
   bash -c "set -x ; timeout 60 rails server puma -P rails.pid &>rails.log" &
 
   sleep 45
-  $dline
 
-  curl -Lk$s 'http://0.0.0.0:3000' | $debug
-  sleep 20
+  PID="\$(cat rails.pid)" && {
+    grep '^[0-9]' <<< "\$PID" || exit 1
+
+    $dline
+    curl -Lk$s 'http://0.0.0.0:3000' | $debug
+    sleep 20
+  }||:
+
   $dline
 
   cat rails.log
 EOS
 
-exec podman run $rm -it "$1" bash -c "$BSC"
+bash -n <<< "$BSC"
+
+poder="`which podman`" || poder="`which docker`"
+
+exec $poder run $rm -it "$1" bash -c "$BSC"
