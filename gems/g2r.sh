@@ -40,7 +40,7 @@ mck () {
 [[ "$1" == "-e" ]] && {
   FED="f$1"
   shift
-} || FED=master # <<<<<<<<<<<<<<<
+} || FED=f31 # <<<<<<<<<<<<<<<
 
 [[ "$1" ]] || die "arg"
 
@@ -67,7 +67,7 @@ gem unpack "$f.gem" || die "unpack"
 
 [[ "$REV" ]] && s="$1" || s="rubygem-${f%-*}.spec"
 
-gem2rpm -o "$s" "$f.gem" || die "spec"
+gem2rpm -l -t fedora-27-rawhide -o "$s" "$f.gem" || die "spec"
 
 [[ "$G2R" ]] || {
  	echo
