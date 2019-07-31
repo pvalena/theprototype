@@ -76,6 +76,7 @@ bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | sort -u \
   | while read b; do
       z="`rev <<< "$b" | cut -c -4 | rev`"
+      #let "z=0+$z"
       rm "$f"
       fastdown "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/$f"
       bash -c "$d '$f'"
