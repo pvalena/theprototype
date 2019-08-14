@@ -15,8 +15,13 @@
 #     -v  verbose output (all constraints)
 #
 
-set -e
+set -ex
 bash -n "$0"
+
+[[ 'test' == "`rev <<< 'tset'`" ]] \
+  || false "`rev` not working"
+
+{ set +x ; } &>/dev/null
 
 xdnf="dnf -q --disablerepo='*' --enablerepo='rawhide*'"
 D=requires
