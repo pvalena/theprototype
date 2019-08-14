@@ -27,10 +27,23 @@ mc="rubygems"
 gp='rubygem-'
 
 [[ "$1" == '-c' ]] && {
-  COP="$1"
+  CON="$1"
   shift
   :
-} || COP=
+} || CON=
+
+[[ "$1" == '-r' ]] && {
+  msr="${msr} -r $2"
+  shift 2
+  :
+}
+
+[[ "$1" == '-v' ]] && {
+  mc="vagrant"
+  gp="vagrant-"
+  shift
+  :
+}
 
 tb='copr'
 rm='copr/master'
@@ -57,7 +70,8 @@ p="$1"
 [[ -n "$p" && -n "$g" ]]
 grep "^$gp" <<< "$g"
 
-[[ -z "$COP" ]] || {
+CINIT=
+[[ -n "$CON" ]] || {
   git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$g.git" ||:
   #for x in {1..2}; do
   #
@@ -73,15 +87,17 @@ grep "^$gp" <<< "$g"
 
   [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
   gitrh "$rm"
+
+  gem fetch "$p"||:
+  CINIT="`echo --{clean,init}`"
 }
 
 rm *.src.rpm ||:
 rm -rf result/ ||:
 #fedpkg --release master sources
-gem fetch "$p"
-fedpkg --release master srpm
+fedpkg --release f31 srpm
 
-for c in --{clean,init} *.src.rpm; do
+for c in $CINIT *.src.rpm; do
   mck $c
   sleep 0.1
 done
