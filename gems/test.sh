@@ -102,6 +102,13 @@ for c in $CINIT *.src.rpm; do
   sleep 0.1
 done
 
+mck -unpriv --shell "
+  find -type f -name '*.rb' \
+    | xargs -i bash -c "{
+      ruby -c '{}' 2>&1 || exit 255
+    } | grep -v '^Syntax OK$' ;:"
+"
+
 mar=''
 for c in "{x86_64,noarch}" {x86_64,noarch} ; do
   x="$(bash -c "ls result/*.${c}.rpm")" || continue
