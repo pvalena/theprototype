@@ -4,8 +4,10 @@ set -xe
 bash -n "$0"
 
 # needs to verbose `-v` to be able to capture proper error messages
-msr='-n --new-chroot --result=./result'
-mar='--bootstrap-chroot'
+#PREFER: msr='-n --new-chroot --result=./result'
+#PREFER: mar='--bootstrap-chroot'
+msr='-n --old-chroot --result=./result'
+mar=''
 mck () {
   a=""
   while [[ -n "$1" ]]; do a="$a '$1'" ; shift ; done
@@ -102,12 +104,13 @@ for c in $CINIT *.src.rpm; do
   sleep 0.1
 done
 
-mck -unpriv --shell "
-  find -type f -name '*.rb' \
-    | xargs -i bash -c "{
-      ruby -c '{}' 2>&1 || exit 255
-    } | grep -v '^Syntax OK$' ;:"
-"
+mck --unpriv --shell '
+  cd
+  find -type f -name "*.rb" \
+    | xargs -i bash -c \
+      "{ set -x ; ruby -c \"{}\" 2>&1 || exit 255 ; } | grep -v \"^Syntax OK$\""
+  :
+' || fail 'Syntax check'
 
 mar=''
 for c in "{x86_64,noarch}" {x86_64,noarch} ; do
@@ -125,14 +128,13 @@ done
     mck --unpriv --chroot "$c" \
       || fail "$c"
   done
-
 }||:
 
 rpmlint result/*.rpm | sort -u
 
 { set +x ; } &>/dev/null
 [[ -z "$E" ]] && {
-  echo "=> Success"
+  echo -e "=> Success\n"
   :
 } || echo -e "\n$E"
 exit $R
