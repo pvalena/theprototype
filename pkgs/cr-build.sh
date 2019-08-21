@@ -30,6 +30,12 @@ x="${2}"
 p="$(basename "$PWD")"
 [[ -n "$p" ]]
 
+l="`readlink -e "../copr-r8-${n}"`"
+[[ -n "$l" && -d "$l" ]]
+
+f="${l}/${p}.log"
+touch "$f"
+
 ls *.src.rpm &>/dev/null || {
   fedpkg --dist f31 srpm || {
     echo "Warning: modifying spec file..." >&2
@@ -60,7 +66,7 @@ grep -q succeeded <<< "$O" || {
       curl -sLk "$u" | zcat | uniq
     done
 
-  ) | $d
+  ) 2>&1 | tee "$f" | $d
 }
 
 exit $R
