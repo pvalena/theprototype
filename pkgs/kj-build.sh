@@ -2,7 +2,9 @@
 
 set -xe
 bash -n "$0"
-f='build.log'
+mkdir -p result
+f1='result/root.log'
+f2='result/build.log'
 l='--release'
 
 srpm () {
@@ -75,14 +77,16 @@ bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | tr -s ' ' '\n' \
   | grep -E '^[0-9]+$' \
   | sort -u \
+  | head -1 \
   | while read b; do
+      sleep 1
       z="`rev <<< "$b" | cut -c -4 | rev | sed 's/^0*//'`"
-      rm "$f"
-      fastdown "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/$f"
-      bash -c "$d '$f'"
+      for f in "$f1" "$f2"; do
+        rm "$f"
+        fastdown -O "$f" "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
+      done
+      bash -c "$d '$f2' '$f1'"
    done
-
-
 exit 0
 ###########################################################
 #             EXITED
