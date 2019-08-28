@@ -50,12 +50,11 @@ gp='rubygem-'
 tb='copr'
 rm='copr/master'
 
-#kl="$me@FEDORAPROJECT.ORG"
-#klist -a | grep -q "$kl" || {
-#  psg -k krenew ||:
-#  kinit "$kl" -l 30d
-#  psg krenew || krenew -i -K 60 -L -b
-#}
+kl="$me@FEDORAPROJECT\.ORG"
+( klist -a | grep -q "${kl}$" ) || {
+  pgrep -x krenew || krenew -i -K 60 -L -b
+  kinit "$kl" -l 30d
+}
 
 p="$1"
 [[ -n "$p" ]] && {
