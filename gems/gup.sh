@@ -208,10 +208,10 @@ bash -c "$c -n '$ver' '$X'" || {
 
 # sources
 gcom=' (tar|git|cp|mv|cd) '
-grep -A 5 ' git clone ' "$X" | grep '^#' |  grep -E "$gcom" \
+grep -A 10 ' git clone ' "$X" | grep '^#' |  grep -E "$gcom" \
   | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
 
-cmd=$( grep -A 3 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
+cmd=$( grep -A 10 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
   | xargs -i echo "set -x ; {}echo Ok || exit 1" )
 
 [[ -z "$cmd" ]] || {
