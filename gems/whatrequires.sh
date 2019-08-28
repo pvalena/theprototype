@@ -15,11 +15,13 @@
 #     -v  verbose output (all constraints)
 #
 
-set -ex
+set -e
 bash -n "$0"
 
-[[ 'test' == "`rev <<< 'tset'`" ]] \
-  || false "`rev` not working"
+abort () {
+  echo "Error: $@" >&2
+  exit 1
+}
 
 { set +x ; } &>/dev/null
 
@@ -30,7 +32,7 @@ C=what$D
 [[ "$1" == '-a' ]] && { DEBUG=y ; shift ; } ||:
 [[ "$1" == '-d' ]] && { DEBUG=y ; shift ; } ||:
 [[ "$1" == '-v' ]] && { VERBO=y ; shift ; } ||:
-[[ "${1:0:1}" != '-' ]] || { echo "Invalid arg: $1" ; exit 1 ; }
+[[ "${1:0:1}" != '-' ]] || abort "Invalid arg: $1"
 
 for g in "$@"; do
   echo -e "\n--> $g"
