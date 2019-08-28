@@ -25,9 +25,10 @@ KJB="`dirname "$(readlink -e "$0")"`/kj-build.sh"
 [[ "$1" == "-r" ]] && { RE='yy' ; shift 1 ; } || RE=
 [[ "$1" == "-s" ]] && { SB='yy' ; shift 1 ; } || SB=
 
-( klist -a | grep -q 'FEDORAPROJECT\.ORG$' ) || {
+kl="pvalena@FEDORAPROJECT.ORG"
+( klist -a | grep -q "${kl}$" ) || {
   pgrep -x krenew || krenew -i -K 60 -L -b
-  kinit pvalena@FEDORAPROJECT.ORG  -l 30d
+  kinit "$kl" -l 30d
 }
 
 [[ -z "$RE" ]] || {
