@@ -2,6 +2,8 @@
 set -xe
 bash -n "$0"
 
+COPR_URL="https://copr-be.cloud.fedoraproject.org/results/pvalena/"
+
 d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
 [[ "$1" == '-s' ]] && {
@@ -57,14 +59,13 @@ grep -qE '^[0-9]*' <<< "$b" || exit 3
 [[ -t 1 ]] || d=cat
 [[ -t 0 ]] || d=cat
 
+sleep 2
+
 grep -q succeeded <<< "$O" || {
   (
     echo "$O"
-    for l in root build; do
-      u="https://copr-be.cloud.fedoraproject.org/results/pvalena/${n}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz"
-      echo -e "\n > $u" >&2
-      curl -sLk "$u" | zcat | uniq
-    done
+    u="${COPR_URL}${n}/${x}/`printf "%08d" $b`-${p}/builder-live.log.gz"
+    curl -sLk "$u" | zcat | uniq
 
   ) 2>&1 | tee "$f" | $d
 }
