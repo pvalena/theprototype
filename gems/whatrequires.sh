@@ -12,6 +12,7 @@
 #   Options; expected in alpabetic order:
 #     -a  all entries (debug output)
 #     -d  debug output (all entries)
+#     -q  quiet output
 #     -v  verbose output (all constraints)
 #
 
@@ -23,19 +24,18 @@ abort () {
   exit 1
 }
 
-{ set +x ; } &>/dev/null
-
 xdnf="dnf -q --disablerepo='*' --enablerepo='rawhide*'"
 D=requires
 C=what$D
 
 [[ "$1" == '-a' ]] && { DEBUG=y ; shift ; } ||:
 [[ "$1" == '-d' ]] && { DEBUG=y ; shift ; } ||:
+[[ "$1" == '-q' ]] && { QUIET=y ; shift ; } ||:
 [[ "$1" == '-v' ]] && { VERBO=y ; shift ; } ||:
 [[ "${1:0:1}" != '-' ]] || abort "Invalid arg: $1"
 
 for g in "$@"; do
-  echo -e "\n--> $g"
+  [[ -z "$QUIET" ]] && echo -e "\n--> $g"
 
   for a in '' --arch=src ; do
     for z in -$g "($g)"; do
@@ -46,8 +46,8 @@ for g in "$@"; do
   | xargs -i bash -c "
     O=\"\$($xdnf repoquery --${D} '{}' | grep '${g}')\"
 
+    # NOT Debug
     [[ -z \"$DEBUG\" ]] && {
-      # NOT Debug
       [[ -n \"$VERBO\" ]] && {
         O=\"\$(grep '[><=]' <<< \"\$O\")\"
         :
@@ -56,6 +56,11 @@ for g in "$@"; do
       [[ -z \"\$O\" ]] && exit
     }
 
-    echo -e \"{}:\n\$O\n\"
-  "
+    # Debug + Non-debug
+    [[ -z \"$QUIET\" ]] \
+      && echo -e \"{}:\n\$O\n\" \
+      || echo -e \"$O\"
+
+  " 2>/dev/null || exit 1
 done
+exit 0
