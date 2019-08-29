@@ -1,10 +1,17 @@
 #!/bin/bash
 
-set -xe
+set -e
 bash -n "$0"
+
+abort () {
+  echo "$@" >&2
+  exit 1
+}
+
 mkdir -p result
 f1='result/root.log'
 f2='result/build.log'
+
 l='--release'
 
 srpm () {
@@ -16,7 +23,11 @@ srpm () {
 
 d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
+[[ "$1" == '-q' ]] && Q=y && shift
 [[ "$1" == '-s' ]] && S=y && shift
+[[ '-' == "${1:0:1}" ]] && exit 2
+
+[[ -z "$Q" ]] || set -x
 
 r="$1"
 [[ -n "$r" ]] || {
@@ -35,15 +46,17 @@ r="$1"
       :
     } || {
       s=
-      for t in "$r" '' 'master'; do
+      c=1
+      for t in "$r" '' 'master' 'f32'; do
         srpm "$t" && {
           s="$t"
+          c=0
           break
-        }||:
+        } ||:
       done
 
       # success
-      [[ -z "$s" ]] || {
+      [[ $c -eq 1 ]] || {
         r="$s"
         break
       }
@@ -59,16 +72,25 @@ r="$1"
 }
 
 [[ -n "$r" ]] && r="$l $r"
-
 [[ -n "`ls *.src.rpm`" ]] || exit 6
 
 [[ -t 1 ]] || d=cat
 [[ -t 0 ]] || d=cat
 
 { set +xe ; } &>/dev/null
+
+cmd="fedpkg $r scratch-build --srpm *.src.rpm --nowait"
+
+[[ -n "$Q" ]] && {
+  X="$( bash -c "$cmd" 2>&1 )" || abort "Failed:\n$X"
+  grep -q '^Task info: ' <<< "$X" || abort "Invalid output:\n$X"
+  grep '^Task info: ' <<< "$X" | cut -d' ' -f3
+  exit 0
+}
+
 date -Isec
 
-bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
+bash -c "$cmd" 2>&1 \
   | tee -a /dev/stderr \
   | grep 'buildArch' \
   | grep -E '(FAILED|closed)' \
@@ -81,12 +103,14 @@ bash -c "fedpkg $r scratch-build --srpm *.src.rpm" 2>&1 \
   | while read b; do
       sleep 1
       z="`rev <<< "$b" | cut -c -4 | rev | sed 's/^0*//'`"
+
       for f in "$f1" "$f2"; do
         rm "$f"
-        fastdown -O "$f" "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
+        curl -sLk -o "$f" "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
       done
       bash -c "$d '$f2' '$f1'"
    done
+
 exit 0
 ###########################################################
 #             EXITED
