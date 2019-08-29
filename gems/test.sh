@@ -3,11 +3,16 @@
 set -xe
 bash -n "$0"
 
-# needs to verbose `-v` to be able to capture proper error messages
-#PREFER: msr='-n --new-chroot --result=./result'
-#PREFER: mar='--bootstrap-chroot'
-msr='-n --old-chroot --result=./result'
-mar=''
+MYD="`readlink -e "$(dirname "$0")/.."`"
+[[ -d "$MYD" ]]
+
+rel='f32'
+
+msr='-n --new-chroot --result=./result'
+mar='--bootstrap-chroot'
+# Fallback:
+#msr='-n --old-chroot --result=./result'
+#mar=''
 mck () {
   a=""
   while [[ -n "$1" ]]; do a="$a '$1'" ; shift ; done
@@ -83,11 +88,13 @@ CINIT=
   #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$g" ||:
   #gitf "$me"
 
+  gitt
   gitc "$tb" \
    || gitcb "$tb" -t "$rm"
 
   [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
   gitrh "$rm"
+  gitb -u "$rm"
 
   gem fetch "$p"||:
   CINIT="`echo --{clean,init}`"
@@ -96,20 +103,12 @@ CINIT=
 rm *.src.rpm ||:
 rm -rf result/ ||:
 #fedpkg --release master sources
-fedpkg --release f31 srpm
+fedpkg --release $rel srpm
 
 for c in $CINIT *.src.rpm; do
   mck $c
   sleep 0.1
 done
-
-mck --unpriv --shell '
-  cd
-  find -type f -name "*.rb" \
-    | xargs -i bash -c \
-      "{ set -x ; ruby -c \"{}\" 2>&1 || exit 255 ; } | grep -v \"^Syntax OK$\""
-  :
-' || fail 'Syntax check'
 
 mar=''
 for c in "{x86_64,noarch}" {x86_64,noarch} ; do
@@ -122,18 +121,68 @@ for c in "{x86_64,noarch}" {x86_64,noarch} ; do
     || fail "Install $c"
 done
 
+TP="  - Syntax check:"
+mck --unpriv --shell '
+  cd
+  find -type f -name "*.rb" \
+    | xargs -i bash -c \
+      "{ ruby -c \"{}\" 2>&1 || exit 255 ; } | grep -v \"^Syntax OK$\""
+  :
+' && TP="$TP ok" || TP="$TP failed"
+
+TP="$TP\n  - Tests:"
+grep -q ' 0 failures' result/build.log && {
+  grep -q ' 0 errors' result/build.log && {
+    grep -q ' 0 assertions' result/build.log \
+      && TP="$TP no assertions" \
+      || TP="$TP ok"
+    :
+  } || TP="$TP errors"
+  :
+} || TP="$TP failures"
+
+TP="$TP\n  - Dependent packages:"
+DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$p'" )" \
+  && TP="$TP ok" || TP="$TP $DEP"
+
 [[ $R -eq 0 ]] && {
-  for c in "rpm -q \"$g\"" "ruby -e \"require '\''$p'\''\"" ; do
+  TP="$TP\n  - Smoke test(require):"
+  for c in "rpm -q \"$g\"" "ruby -e \"require '\''$p'\''\"" 0 ; do
+    [[ "$c" == '0' ]] && {
+      TP="$TP ok"
+      break
+    }
     mck --unpriv --chroot "$c" \
-      || fail "$c"
+      || TP="$TP failed"
   done
 }||:
 
-rpmlint result/*.rpm | sort -u
+RPML="$( rpmlint result/*.rpm 2>/dev/null | sort -u )"
 
 { set +x ; } &>/dev/null
-[[ -z "$E" ]] && {
-  echo -e "=> Success\n"
-  :
-} || echo -e "\n$E"
+
+echo -e "\n\n$RPML"
+
+[[ -z "$E" ]] \
+  && echo -e "\n=> Success" \
+  || echo -e "\n$E"
+
+cat <<EOLX
+_ _ _ _
+
+To have latest $p gem in Fedora.
+
+
+Up-to-date Koji scratch-build:
+$( bash -c "$MYD/pkgs/kj-build.sh -q $rel" )
+
+Up-to-date Copr build:
+?
+
+Checks:
+$( echo -e "$TP" )
+  - rpmlint: ?
+
+EOLX
+
 exit $R
