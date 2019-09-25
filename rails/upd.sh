@@ -12,7 +12,7 @@
 # Variables::
 
  export RPM_PACKAGER='Pavel Valena <pvalena@redhat.com>'
- RAILSBUILD_DIR="$(readlink -e "`dirname "$0"`/../../../../rails/railsbuild/")"
+ RAILSBUILD_DIR="$(readlink -f "`dirname "$0"`/railsbuild/")"
 
 ################################################################################
 
@@ -22,11 +22,15 @@ bash -n "$0"
 
 uxit () {
  	echo "User Quit" 2>&1
+ 	[[ -n "$1" ]] && "MSG: $@" 2>&1
  	exit 1
 }
 
 CDIR="`pwd`"
 
+cd "$(dirname "`readlink -e "$0"`")" || die "Failed to cd"
+
+[[ -d "$RAILSBUILD_DIR" ]] || git clone https://github.com/pvalena/railsbuild.git
 [[ -d "$RAILSBUILD_DIR" ]] || die "RailsBuild dir missing!"
 [[ -r "$RAILSBUILD_DIR/railsbuild" ]] || die "RailsBuild script missing!"
 
@@ -67,8 +71,6 @@ done
  UPDATE_WHERE="${3:-28}"
 
  [[ "$4" ]] && die "Redundant arg: '$4'"
-
- cd "$(dirname "`readlink -e "$0"`")" || die "Failed to cd"
 
  bask "Update rails in fedora $UPDATE_WHERE from v. $FROM_VERSION to v. $TO_VERSION" || uxit
 
