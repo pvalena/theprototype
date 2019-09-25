@@ -88,7 +88,7 @@ CINIT=
   #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$g" ||:
   #gitf "$me"
 
-  gitt
+  gitt||:
   gitc "$tb" \
    || gitcb "$tb" -t "$rm"
 
