@@ -39,13 +39,17 @@ read -r -d '' BSC << EOS||:
   # The bellow can fail, but just continue until log
   { set +e ; }&>/dev/null
 
-  rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap -f
+  rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f
   cd app || exit 1
 
   [[ -z "$gem" ]] || echo "gem '$gem'" >> Gemfile
 
   rm Gemfile.lock
   bundle install --path vendor/bundle -r 3 $blocal
+
+  $dline
+
+  #bundle exec rails webpacker:install
 
   $dline
 
