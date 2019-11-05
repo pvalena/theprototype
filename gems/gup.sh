@@ -314,29 +314,5 @@ ask -s 'Run copr build' && {
 }||:
 
 ask -s 'Run checks' && {
-  bash -c "$TST"
+  bash -c "$TST -c"
 }||:
-
-# TODO: port from rev.sh
-exit
-# unfinished; port
-ask 'Run install'
-
-rm /var/lib/mock/fedora-rawhide-x86_64/root/builddir/*.rpm
-
-ls result/*.rpm | grep -E '\.(noarch|x86_64)\.rpm$' \
-  | xargs sudo cp -vt /var/lib/mock/fedora-rawhide-x86_64/root/builddir \
-  && sudo mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --chroot 'rpm -U /builddir/*.rpm ; rpm -v --reinstall /builddir/*.rpm' \
-  || die "Failed to install resulting packages"
-
-ask 'Clean'
-mock -n --old-chroot --bootstrap-chroot -r fedora-rawhide-x86_64 --clean || warn "Failed to clean mock"
-
-# unfinished; port
-ask 'Run syntax check'
-
-# syntax check
-find -type f -name '*.rb' \
-  | xargs -i bash -c "{
-      set -x ; ruby -c '{}' 2>&1 || exit 255
-    } | grep -v '^Syntax OK$' ;:"
