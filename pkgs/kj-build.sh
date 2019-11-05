@@ -79,10 +79,10 @@ r="$1"
 
 { set +xe ; } &>/dev/null
 
-cmd="fedpkg $r scratch-build --srpm *.src.rpm --nowait"
+cmd="fedpkg $r scratch-build --srpm *.src.rpm"
 
 [[ -n "$Q" ]] && {
-  X="$( bash -c "$cmd" 2>&1 )" || abort "Failed:\n$X"
+  X="$( bash -c "${cmd} --nowait" 2>&1 )" || abort "Failed:\n$X"
   grep -q '^Task info: ' <<< "$X" || abort "Invalid output:\n$X"
   grep '^Task info: ' <<< "$X" | cut -d' ' -f3
   exit 0
@@ -90,7 +90,7 @@ cmd="fedpkg $r scratch-build --srpm *.src.rpm --nowait"
 
 date -Isec
 
-bash -c "$cmd" 2>&1 \
+bash -c "${cmd}" 2>&1 \
   | tee -a /dev/stderr \
   | grep 'buildArch' \
   | grep -E '(FAILED|closed)' \
