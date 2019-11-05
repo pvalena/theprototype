@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# >&2
+{
 set -xe
 bash -n "$0"
 
@@ -8,25 +10,16 @@ MYD="`readlink -e "$(dirname "$0")/.."`"
 
 rel='f32'
 
-msr='-n --new-chroot --result=./result'
+# mock changes it's verbosity if output is redirected
+[[ -t 1 ]] && v='' || v="-v "
+msr="${v}-n -r fedora-rubygems-x86_64 --new-chroot --result=./result"
 mar='--bootstrap-chroot'
-# Fallback:
-#msr='-n --old-chroot --result=./result'
-#mar=''
 mck () {
   a=""
   while [[ -n "$1" ]]; do a="$a '$1'" ; shift ; done
 
   bash -c "set -x ; mock $msr $mar $a"
   return $?
-}
-
-R=0
-E=''
-fail () {
-  R=1
-  E="$E\n$(echo "=> $@ Failed" | tee -a /dev/stderr)"
-  return 0
 }
 
 me="pvalena"
@@ -39,56 +32,62 @@ gp='rubygem-'
   :
 } || CON=
 
+[[ "$1" == '-k' ]] && {
+  KJ="$1"
+  shift
+  :
+} || KJ=
+
 [[ "$1" == '-r' ]] && {
   msr="${msr} -r $2"
   shift 2
-  :
 }
 
 [[ "$1" == '-v' ]] && {
   mc="vagrant"
   gp="vagrant-"
   shift
-  :
 }
 
 tb='copr'
 rm='copr/master'
 
-kl="$me@FEDORAPROJECT\.ORG"
-( klist -a | grep -q "${kl}$" ) || {
-  pgrep -x krenew || krenew -i -K 60 -L -b
-  kinit "$kl" -l 30d
+[[ -z "$KJ" ]] || {
+  kl="$me@FEDORAPROJECT\.ORG"
+  ( klist -a | grep -q "${kl}$" ) || {
+    pgrep -x krenew || krenew -i -K 60 -L -b
+    kinit "$kl" -l 30d
+  }
 }
 
 p="$1"
 [[ -n "$p" ]] && {
-  [[ -n "`grep "^$gp" <<< "$p"`" ]] && g="$p" || g="$gp$p"
-  [[ -d "$g" ]] || fedpkg --user "$me" clone -a "$g"
-  [[ -d "$g" ]]
-  cd "$g"
+  grep -q "^$gp" <<< "$p" || p="$gp$p"
+  [[ -d "$p" ]] || fedpkg --user "$me" clone -a "$p"
+  [[ -d "$p" ]]
+  cd "$p"
   :
 } || {
-  g="`basename "$PWD"`"
-  p="$(cut -d'-' -f2- <<< "$g")"
+  p="`basename "$PWD"`"
 }
+g="$(cut -d'-' -f2- <<< "$p")"
 
 [[ -n "$p" && -n "$g" ]]
-grep "^$gp" <<< "$g"
+grep "^$gp" <<< "$p" &>/dev/null
 
 CINIT=
 [[ -n "$CON" ]] || {
-  git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$g.git" ||:
+  git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
   #for x in {1..2}; do
   #
   #  git remote remove "$tb"
   #done
   gitf "$tb"
 
-  #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$g" ||:
+  #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$p" ||:
   #gitf "$me"
 
-  gitt||:
+  gitt ||:
   gitc "$tb" \
    || gitcb "$tb" -t "$rm"
 
@@ -96,7 +95,7 @@ CINIT=
   gitrh "$rm"
   gitb -u "$rm"
 
-  gem fetch "$p"||:
+  gem fetch "$g" ||:
   CINIT="`echo --{clean,init}`"
 }
 
@@ -110,6 +109,7 @@ for c in $CINIT *.src.rpm; do
   sleep 0.1
 done
 
+E=''
 mar=''
 for c in "{x86_64,noarch}" {x86_64,noarch} ; do
   x="$(bash -c "ls result/*.${c}.rpm")" || continue
@@ -117,9 +117,9 @@ for c in "{x86_64,noarch}" {x86_64,noarch} ; do
   mck -i $x && {
     [[ "$c" == "{x86_64,noarch}" ]] && break
     :
-  } \
-    || fail "Install $c"
+  } || E="Install $c Failed"
 done
+
 
 TP="  - Syntax check:"
 mck --unpriv --shell '
@@ -130,58 +130,83 @@ mck --unpriv --shell '
   :
 ' && TP="$TP ok" || TP="$TP failed"
 
+
 TP="$TP\n  - Tests:"
-grep -q ' 0 failures' result/build.log && {
-  grep -q ' 0 errors' result/build.log && {
-    grep -q ' 0 assertions' result/build.log \
-      && TP="$TP no assertions" \
-      || TP="$TP ok"
-    :
-  } || TP="$TP errors"
-  :
+grep -q '^Executing(%check)'  result/build.log && {
+grep -q ' 0 failures'         result/build.log && {
+grep -q ' 0 errors'           result/build.log && {
+grep -q ' 0 assertions'       result/build.log \
+  && TP="$TP no assertions" \
+  || TP="$TP ok"
+:
+} || TP="$TP errors"
+:
 } || TP="$TP failures"
+:
+} || TP="$TP nocheck"
+
 
 TP="$TP\n  - Dependent packages:"
-DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$p'" )" \
-  && TP="$TP ok" || TP="$TP $DEP"
+DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
+  && TP="$TP ok" \
+  || TP="$TP $DEP"
 
-[[ $R -eq 0 ]] && {
-  TP="$TP\n  - Smoke test(require):"
-  for c in "rpm -q \"$g\"" "ruby -e \"require '\''$p'\''\"" 0 ; do
-    [[ "$c" == '0' ]] && {
-      TP="$TP ok"
-      break
-    }
-    mck --unpriv --chroot "$c" \
-      || TP="$TP failed"
+
+[[ -n "$E" ]] || {
+  TP="$TP\n  - Smoke test:"
+  q="`sed -e '/minitest\-/ s/\-/\//' <<< "$g"`"
+  q="`sed -e 's/^ruby//' <<< "$q"`"
+  for c in "rpm -q \"$p\"" "ruby -e \"require '\''$q'\''\"" 0 ; do
+    [[ "$c" == '0' ]] \
+      && TP="$TP ok" \
+      || {
+        mck --unpriv --chroot "$c" || {
+          TP="$TP failed('$c')"
+          break
+        }
+      }
   done
-}||:
+}
 
-RPML="$( rpmlint result/*.rpm 2>/dev/null | sort -u )"
+
+set -o pipefail
+TP="$TP\n  - rpmlint:"
+RPML="$( rpmlint result/*.rpm 2>/dev/null | sort -u )" \
+  && TP="$TP ok" \
+  || TP="$TP failed"
+
+
+# In case we dont do this from gup.sh
+[[ -z "$KJ" ]] \
+  && KJB="_TBD_" \
+  || KJB="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`"
+
 
 { set +x ; } &>/dev/null
+R=0
+[[ -n "$E" ]] && R=1 || E='Success'
 
-echo -e "\n\n$RPML"
 
-[[ -z "$E" ]] \
-  && echo -e "\n=> Success" \
-  || echo -e "\n$E"
+echo -e "\n=> $E\n_ _ _ _\n\nrpmlint: $RPML\n"
 
-cat <<EOLX
+} >&2
+
+cat <<EOLX | tee -a /dev/stderr
+
 _ _ _ _
 
-To have latest $p gem in Fedora.
+To have latest $g gem in Fedora.
 
 
 Up-to-date Koji scratch-build:
-$( bash -c "$MYD/pkgs/kj-build.sh -q $rel" )
+$KJB
 
 Up-to-date Copr build:
-?
+_TBD_
 
 Checks:
+
 $( echo -e "$TP" )
-  - rpmlint: ?
 
 EOLX
 
