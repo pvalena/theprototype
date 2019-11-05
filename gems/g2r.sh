@@ -2,6 +2,8 @@
 
  . lpcsbclass
 
+bash -n "$0" || exit 7
+
 mar='--new-chroot --bootstrap-chroot'
 mck () {
   local c=
@@ -22,52 +24,59 @@ mck () {
   shift
 } || VER=
 
-[[ "$1" == "-g" ]] && {
-  G2R="$1"
-	shift
-} || G2R=
+[[ "$1" == "-e" ]] && {
+  FED="f$1"
+  shift
+} || FED=f31 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-f" ]] && {
   FAST="$1"
   shift
 } || FAST=
 
+[[ "$1" == "-g" ]] && {
+  G2R="$1"
+	shift
+} || G2R=
+
 [[ "$1" == "-k" ]] && {
   KEEP="$1"
   shift
 } || KEEP=
 
-[[ "$1" == "-e" ]] && {
-  FED="f$1"
-  shift
-} || FED=f31 # <<<<<<<<<<<<<<<
-
-[[ "$1" ]] || die "arg"
-
 [[ "$1" == "-r" ]] && {
   REV="$1"
   shift
-  [[ "$1" ]] || die "arg rev"
-} || {
-  mkdir -p "$1" || die "mkd"
+} ||:
 
-  cd "$1" || die "cd"
+[[ "$1" == "-v" ]] && {
+  VER="$1"
+  shift
+} || VER=
 
-  [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
 
-  gem fetch "$1" || die "fetch"
-  REV=
-}
+[[ "$1" ]] || die "arg"
+f="rubygem-$1"
+s=
 
-f="`ls *.gem`"
-f="`basename -s ".gem" "$f"`"
+[[ -n "$REV" ]] \
+  && s="$1" \
+  || {
+    s="rubygem-$1.spec"
+    mkdir -p "$f" || die "mkd"
+
+    cd "$f" || die "cd"
+
+    [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
+    # Fetch using gem2rpm instead
+    #gem fetch "$1" || die "fetch"
+    REV=
+  }
+
+gem2rpm --fetch -t fedora-27-rawhide -o "$s" "$f.gem" || die "spec"
+
 [[ -r "$f.gem" ]] || die "fle"
-
 gem unpack "$f.gem" || die "unpack"
-
-[[ "$REV" ]] && s="$1" || s="rubygem-${f%-*}.spec"
-
-gem2rpm -l -t fedora-27-rawhide -o "$s" "$f.gem" || die "spec"
 
 [[ "$G2R" ]] || {
  	echo
