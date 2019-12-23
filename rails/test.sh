@@ -85,14 +85,15 @@ usage () {
   mock $MAR "$@" -n $T -i $I || die 'additional install failed'
 }
 
-mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd && rm -rf app/"
+mock $MAR "$@" -n $T --unpriv --chroot "set -xe ; cd && rm -rf app/"
 sleep 0.1
-
-mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap -f" || die "rails new failed"
+mock $MAR "$@" -n $T --unpriv --chroot "set -xe ; cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" || die "rails new failed"
 sleep 0.1
-
-#mock $MAR "$@" -n $T --unpriv --chroot "cd && cd app && sed -i '/chromedriver-helper/ s/^/#/g' Gemfile" || die "Gemfile edits failed"
-#sleep 0.1
-
-mock $MAR "$@" -n $T --unpriv --chroot "set -x ; cd ~/app || exit 7 ; ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q '<title>Ruby on Rails</title>' && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1" || die '`rails server` failed'
+mock $MAR "$@" -n $T --unpriv --chroot "set -xe ; cd ~/app && sed -i 's/\(gem..puma.\).*/\1/' Gemfile" || die "Gemfile edits failed"
+sleep 0.1
+mock $MAR "$@" -n $T --unpriv --chroot "set -xe ; cd ~/app && sed -i 's/\(gem..listen.\).*/\1/' Gemfile" || die "Gemfile edits failed"
+sleep 0.1
+mock $MAR "$@" -n $T --unpriv --chroot "set -xe ; cd ~/app && bundle install --local --without development test" || die "bundle install"
+sleep 0.1
+mock $MAR "$@" -n $T --unpriv --chroot "set -e  ; cd ~/app ; ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q '<title>Ruby on Rails</title>' && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1" || die '`rails server` failed'
 sleep 0.1
