@@ -16,8 +16,9 @@ l='--release'
 
 srpm () {
   local x=
-  [[ -n "$1" ]] && x="$l $1"
-  bash -c "fedpkg $x srpm" && return 0
+  [[ -n "$1" ]] && x="$l $1" ||:
+  [[ -n "$Q" ]] && q=' &>/dev/null' || q=
+  bash -c "fedpkg $x srpm$q" && return 0
   return 1
 }
 
