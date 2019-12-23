@@ -26,6 +26,14 @@ me="pvalena"
 mc="rubygems"
 gp='rubygem-'
 
+COPR_URL="https://copr-be.cloud.fedoraproject.org/results/$me/"
+
+[[ "$1" == '-b' ]] && {
+  CR="$2"
+  shift 2
+  :
+} || CR=
+
 [[ "$1" == '-c' ]] && {
   CON="$1"
   shift
@@ -33,26 +41,32 @@ gp='rubygem-'
 } || CON=
 
 [[ "$1" == '-k' ]] && {
-  KJ="$1"
-  shift
+  KJ="$2"
+  shift 2
   :
 } || KJ=
+
+[[ "$1" == '-p' ]] && {
+  pr="$2"
+  shift 2
+  :
+} || pr=
 
 [[ "$1" == '-r' ]] && {
   msr="${msr} -r $2"
   shift 2
-}
+} ||:
 
 [[ "$1" == '-v' ]] && {
   mc="vagrant"
   gp="vagrant-"
   shift
-}
+} ||:
 
 tb='copr'
 rm='copr/master'
 
-[[ -z "$KJ" ]] || {
+[[ -n "$KJ" ]] || {
   kl="$me@FEDORAPROJECT\.ORG"
   ( klist -a | grep -q "${kl}$" ) || {
     pgrep -x krenew || krenew -i -K 60 -L -b
@@ -77,26 +91,56 @@ grep "^$gp" <<< "$p" &>/dev/null
 
 CINIT=
 [[ -n "$CON" ]] || {
-  git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
-  #for x in {1..2}; do
-  #
-  #  git remote remove "$tb"
-  #done
-  gitf "$tb"
+  gitt ||:
 
+  [[ -n "$pr" ]] || {
+    #for x in {1..2}; do
+    #  git remote remove "$tb"
+    #done
+
+    git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
+    gitf "$tb"
+    gitc "$tb" \
+      || gitcb "$tb" -t "$rm"
+
+    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
+    gitrh "$rm"
+    gitb -u "$rm"
+  }
+
+  #koji?
   #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$p" ||:
   #gitf "$me"
+  [[ -z "$CR" ]] || {
+    set -x
+    u="${COPR_URL}${mc}/fedora-rawhide-x86_64/`printf "%08d" $CR`-${p}/"
+    srpm="$(
+      curl -Lksf "$u" \
+        | tr -s '<' '\n' \
+        | grep -E "^a href='.*\.src\.rpm'" \
+        | cut -d"'" -f2
+    )"
+    [[ -n "$srpm" ]]
+    rm *.src.rpm ||:
 
-  gitt ||:
-  gitc "$tb" \
-   || gitcb "$tb" -t "$rm"
+    curl -OLksf "$u/$srpm"
+    [[ -r "$srpm" ]]
 
-  [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
-  gitrh "$rm"
-  gitb -u "$rm"
+    rpm2cpio *.src.rpm \
+      | cpio -uidmv --no-absolute-filenames
+  }
 
-  gem fetch "$g" ||:
+  [[ -z "$pr" ]] || {
+    gitc master
+    gitb -D "pr$pr"
+    git fetch origin "refs/pull/$pr/head:pr$pr"
+    gitc "pr$pr"
+
+    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "pr$pr" ]]
+  }
+
   CINIT="`echo --{clean,init}`"
+  gem fetch "$g" ||:
 }
 
 rm *.src.rpm ||:
@@ -117,9 +161,8 @@ for c in "{x86_64,noarch}" {x86_64,noarch} ; do
   mck -i $x && {
     [[ "$c" == "{x86_64,noarch}" ]] && break
     :
-  } || E="Install $c Failed"
+  } || E="$c installation failed"
 done
-
 
 TP="  - Syntax check:"
 mck --unpriv --shell '
@@ -132,24 +175,29 @@ mck --unpriv --shell '
 
 
 TP="$TP\n  - Tests:"
-grep -q '^Executing(%check)'  result/build.log && {
-grep -q ' 0 failures'         result/build.log && {
-grep -q ' 0 errors'           result/build.log && {
-grep -q ' 0 assertions'       result/build.log \
-  && TP="$TP no assertions" \
+bl='result/build.log'
+{ grep -q '^Executing(%check)'                                 "$bl" ; } && {
+
+{ grep -q ' 0 failures'        "$bl" || grep -qv ' failures'   "$bl" ; } && {
+
+{ grep -q ' 0 errors'          "$bl" || grep -qv ' errors'     "$bl" ; } && {
+
+{ grep -q ' 0 assertions'      "$bl" || grep -qv ' assertions' "$bl" ; } \
+  \
+  && TP="$TP failed (no assertions)" \
   || TP="$TP ok"
 :
-} || TP="$TP errors"
+} || TP="$TP failed (errors occured)"
 :
-} || TP="$TP failures"
+} || TP="$TP failed (failures occured)"
 :
-} || TP="$TP nocheck"
+} || TP="$TP failed (%check is missing)"
 
 
 TP="$TP\n  - Dependent packages:"
 DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
   && TP="$TP ok" \
-  || TP="$TP $DEP"
+  || TP="$TP failed ($DEP)"
 
 
 [[ -n "$E" ]] || {
@@ -161,7 +209,7 @@ DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
       && TP="$TP ok" \
       || {
         mck --unpriv --chroot "$c" || {
-          TP="$TP failed('$c')"
+          TP="$TP failed ($c)"
           break
         }
       }
@@ -171,20 +219,33 @@ DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
 
 set -o pipefail
 TP="$TP\n  - rpmlint:"
-RPML="$( rpmlint result/*.rpm 2>/dev/null | sort -u )" \
+RPML="$(
+  rpmlint result/*.rpm 2>/dev/null \
+    | grep -vE '(no\-documentation$|spelling\-error|zero\-length|devel\-file\-in\-non\-devel\-package)' \
+    | sort -u
+  )" \
   && TP="$TP ok" \
-  || TP="$TP failed"
+  || TP="$TP failed\n\n$RPML"
 
 
 # In case we dont do this from gup.sh
-[[ -z "$KJ" ]] \
-  && KJB="_TBD_" \
-  || KJB="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`"
+[[ -z "$KJ$E" ]] && {
+  KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`"
+  :
+} || KJ="https://koji.fedoraproject.org/koji/taskinfo?taskID=$kj" \
+
+[[ -z "$CR" ]] \
+  && CR="_TBD_" \
+  || CR="https://copr.fedorainfracloud.org/coprs/build/$CR"
 
 
 { set +x ; } &>/dev/null
 R=0
-[[ -n "$E" ]] && R=1 || E='Success'
+[[ -n "$E" ]] && {
+  R=1
+  TP="$TP\n  - Error: $E"
+  :
+} || E='Success'
 
 
 echo -e "\n=> $E\n_ _ _ _\n\nrpmlint: $RPML\n"
@@ -199,10 +260,10 @@ To have latest $g gem in Fedora.
 
 
 Up-to-date Koji scratch-build:
-$KJB
+$KJ
 
 Up-to-date Copr build:
-_TBD_
+$CR
 
 Checks:
 
