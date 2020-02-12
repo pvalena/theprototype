@@ -37,7 +37,7 @@ r="$1"
   grep -q '^rebase$' <<< "$r" && r="master"
 }
 
-[[ -z "$S" && -n "`ls *.src.rpm`" ]] || {
+[[ -n "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
 
   for i in 0 1; do
@@ -69,6 +69,7 @@ r="$1"
     # Try without richdeps
     sed -i 's/^Recommends: /Requires: /' *.spec
     sed -i '/^Suggests: / s/^/#/' *.spec
+    sed -i -e 's/\(Requires\:\)\s*(.*with\(.*\))/\1\2/' *.spec
   done
 }
 
@@ -77,12 +78,13 @@ r="$1"
 
 [[ -t 1 ]] || d=cat
 [[ -t 0 ]] || d=cat
+[[ -t 0 ]] || d=cat
 
-{ set +xe ; } &>/dev/null
+{ set +e ; } &>/dev/null
 
 cmd="fedpkg $r scratch-build --srpm *.src.rpm"
 
-[[ -n "$Q" ]] && {
+[[ -z "$Q" ]] || {
   X="$( bash -c "${cmd} --nowait" 2>&1 )" || abort "Failed:\n$X"
   grep -q '^Task info: ' <<< "$X" || abort "Invalid output:\n$X"
   grep '^Task info: ' <<< "$X" | cut -d' ' -f3
@@ -107,8 +109,11 @@ bash -c "${cmd}" 2>&1 \
 
       for f in "$f1" "$f2"; do
         rm "$f"
-        curl -sLk -o "$f" "https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
+        u="https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
+        echo "> $u"
+        curl -sLk -o "$f" "$u"
       done
+
       bash -c "$d '$f2' '$f1'"
    done
 
