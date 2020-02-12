@@ -15,6 +15,7 @@ LOC="`dirname "$(dirname "$LOC")"`"
 CRB="${LOC}/pkgs/cr-build.sh"
 KJB="${LOC}/pkgs/kj-build.sh"
 TST="${LOC}/gems/test.sh"
+GET="${LOC}/gems/get.sh"
 
 # helpers
 die () {
@@ -48,7 +49,9 @@ srpm () {
       die "Failed to recreate $1 srpm(2)" "$E"
     }
   }
-  git reset --hard HEAD || die 'Failed to reset git(2)'
+  [[ -n "$CON" ]] || {
+    git reset --hard HEAD || die 'Failed to reset git(2)'
+  }
 }
 
 ask () {
@@ -88,6 +91,29 @@ ask () {
   set -x
 }
 
+[[ "$1" == "-c" ]] && {
+  COP="$2"
+	shift 2
+	:
+} || COP=rubygems
+
+[[ "$1" == "-d" ]] && {
+	shift
+  set -x
+}
+
+[[ "$1" == "-j" ]] && {
+  KOJ=
+	shift
+	:
+} || KOJ=y
+
+[[ "$1" == "-k" ]] && {
+  CON="$1"
+	shift
+	:
+} || CON=
+
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
 	REM="${REM}-$REL"
@@ -97,27 +123,28 @@ ask () {
   REL='master'
 }
 
-[[ "$1" == "-m" ]] && {
-	MOC="$1"
-	shift
-} || MOC=31
-
 [[ "$1" == "-v" ]] && {
-  shift
-	ver="-v $1"
-	shift
+	ver="-v $2"
+	shift 2
 } || ver=
+
+[[ "$1" == "-x" ]] && {
+	EXI="$1"
+	shift
+} || EXI=
 
 [[ "$1" == "-y" ]] && {
 	YES="$1"
 	shift
 } || YES=
 
+[[ -z "$1" ]] || die "Unknown arg: '$1'"
+
 # sanity checks
 [[ -n "$ME" ]] || die "ME shloud be defined"
 [[ -n "$REM" ]] || die "REM shloud be defined"
 [[ -n "$ORG" ]] || die "ORG shloud be defined"
-[[ -n "$MOC" ]] || die "MOC shloud be defined"
+[[ -n "$COP" ]] || die "COP shloud be defined"
 [[ -n "$REL" ]] || die "REL shloud be defined"
 
 # usability
@@ -127,6 +154,8 @@ ask () {
 }
 [[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
 [[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
+[[ -x "$TST" ]] || warn "KJB shloud be defined and executable"
+[[ -x "$GET" ]] || warn "KJB shloud be defined and executable"
 
 
 # set remote
@@ -145,17 +174,19 @@ git diff | $CDF
 echo
 git status
 
-ask "Stash & reset the repository"
+[[ -n "$CON" ]] || {
+  ask "Stash & reset the repository"
 
-# reset
-git stash || die 'Failed to stash git'
+  # reset
+  git stash || die 'Failed to stash git'
 
-git checkout "$REM" || {
-  git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
+  git checkout "$REM" || {
+    git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
+  }
+  git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
+
+  git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 }
-git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
-
-git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
 # spec
 X="`readlink -e *.spec`" || die 'Spec file not found'
@@ -165,16 +196,27 @@ srpm old
 sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
 rm *.src.rpm||:
 
+nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
+nam2="$(rev <<< "$sn" | cut -d'-' -f3- | rev)"
+[[ -n "$nam" ]] && {
+  [[ "$nam" == "$nam2" ]] || die "name inconsistency- should be: '$nam'"
+  :
+} || nam="$nam2"
+[[ -n "$nam" ]] || die "Bad NAME in '$sn' and '$X'"
+
 # old version
 ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
-[[ "$ov" && "$ov" == "$(rev <<< "$sn" | cut -d'-' -f2 | rev)" ]] || die "Old version inconsistency- should be: '$ov'"
+ov2="$(rev <<< "$sn" | cut -d'-' -f2 | rev)"
+[[ -n "$ov" ]] && {
+  [[ "$ov" == "$ov2" ]] || die "Old version inconsistency- should be: '$ov'"
+  :
+} || ov="$ov2"
+[[ -n "$ov" ]] || die "Bad version in '$sn' and '$X'"
 
-nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
-[[ "$nam" ]] || die 'Bad NAME in "$X"'
-[[ "$nam" == "$(rev <<< "$sn" | cut -d'-' -f3- | rev)" ]] || die "Package name inconsistency- should be: '$nam'"
 grep '^rubygem-' <<< "$nam" && nam="`cut -d'-' -f2- <<< "$nam"`"
 
 # new
+rm *.gem||:
 gem fetch "$nam" $ver || die "gem fetch failed"
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
@@ -185,13 +227,8 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
-[[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
-
-[[ -d "$nam/" ]] && {
-  echo
-  ls "$nam/" || die "Failed to list '$nam/'"
-  ask 'Remove directory'
-  rm -rf "$nam/" || die "Failed to remove '$nam/'"
+[[ -n "$CON" ]] || {
+  [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
 }
 
 # bump
@@ -206,67 +243,24 @@ bash -c "$c -n '$ver' '$X'" || {
     || die "Failed to bump spec with message '$M'"
 }
 
-# sources
-gcom=' (tar|git|cp|mv|cd) '
-grep -A 10 ' git clone ' "$X" | grep '^#' |  grep -E "$gcom" \
-  | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
+# additional sources
+# newer version
+grep -A 10 ' git clone ' "$X" | grep '^#' \
+   | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
 
-cmd=$( grep -A 10 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
-  | xargs -i echo "set -x ; {}echo Ok || exit 1" )
+# run the command get ~magic~
+bash -c "$GET '$X' '$ver'" || die 'Failed to execute $GET'
 
-[[ -z "$cmd" ]] || {
-  echo
-  echo "\$cmd: $cmd"
-  ask 'execute $cmd'
-  bash -c "$cmd" || die 'Failed to execute $cmd'
-}
-## All output gets written into sources-new file here
-for x in `spectool -A "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
-  { find -mindepth 2 -type f -name "$x" | xargs -n1 -i mv -v "{}" . ; } 1>&2
-
-  [[ -r "$x" ]] && {
-    echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
-    :
-  } || {
-    warn "Source not found" "$x"
-    warn 'Trying' 'original sources'
-
-    i="`grep "^SHA512 ($x) = " sources`"
-
-    [[ -n "$i" ]] && {
-      echo "$i"
-      :
-    } || {
-      warn "Source not found(2)" "$x"
-      ask 'Continue anyway'
-    }
-  }
-
-  # Add .gitignore entry, if missing
-  g='.gitignore'
-  e=
-  grep -q "$ver" <<< "$x" && {
-    e="`sed "s/$ver/\*/" <<< "$x"`"
-    :
-  } || {
-    t="`rev <<< "$x" | cut -d'-' -f2- | rev`"
-    sf=
-    for s in `tr '|' ' ' <<< "$EXT"`; do
-      grep -q "$s$" <<< "$x" && sf="$s"
-    done
-
-    [[ -n "$sf" && -n "$t" ]] && {
-      e="${t}-*.${sf}"
-    }
-  }
-
-  [[ -z "$e" ]] || {
-    e="/$e"
-    grep -q "^`printf "%q" "$e"`$" "$g" || echo "$e" >> "$g"
-  }
-done > sources-new
-grep -v '^$' sources-new > sources
-rm sources-new
+#
+# cmd=$( grep -A 10 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
+#   | xargs -i echo "set -x ; {}echo Ok || exit 1" )
+#
+# [[ -z "$cmd" ]] || {
+#   echo
+#   echo "\$cmd: $cmd"
+#   ask 'execute $cmd'
+#   bash -c "$cmd" || die 'Failed to execute $cmd'
+# }
 
 # commit
 git commit -am "$M" || die "Failed to commit with message '$M'"
@@ -295,24 +289,27 @@ echo
 gem compare -bk "$nam" "$ov" "$ver"
 ask 'Continue with commit ammend'
 
-git commit -a --amend || die "Failed to amend"
+git commit --amend -am "$M" || die "Failed to amend"
 
 git show | $CDF
 echo
 git status
 
-
-## TODO: push + PR
+[[ -z "$EXI" ]] || exit
+git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
 # build
-ask -s 'Run koji build' && {
-  bash -c "$KJB -s"
-}||:
+[[ -z "$KOJ" ]] || {
+  ask -s 'Run koji build' && {
+    bash -c "$KJB"
+  }||:
+}
 
 ask -s 'Run copr build' && {
-  bash -c "$CRB rubygems"
+  bash -c "$CRB $COP"
 }||:
 
+#check dont currently work without mock
 ask -s 'Run checks' && {
   bash -c "$TST -c"
 }||:
