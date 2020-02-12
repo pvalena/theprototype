@@ -1,14 +1,44 @@
 #!/bin/bash
+#
+# coprbld [-n]
+#   -n  nobreak
+#
+# use ./reset.sh prior to this
+# repos need to be prepared (Using gup.sh)
+#
+
 set -e
 bash -n "$0"
-set +e
 
 d="`pwd`"
+CRB="$(dirname "`dirname "$(readlink -e "$0")"`")/pkgs/cr-build.sh"
+[[ -x "$CRB" ]]
+set +e
+
+[[ "$1" == '-n' ]] && {
+  BREAK=
+  shift
+} || BREAK=y
+
 while read x; do
-  cd "$d" && cd "rubygem-${x}" && echo ">> $x" && {
-    [[ -r .built ]] && continue;
-    rm *.src.rpm ; fedpkg --dist f31 srpm&&copr-cli build ruby-on-rails *.src.rpm&&touch .built
+  y="rubygem-${x}"
+
+  cd "${d}/${y}" || {
+    echo "Failed to cd: '$y'" >&2
+    exit 1
   }
+
+  [[ -r .built ]] && continue
+
+  set -o pipefail
+  bash -c "$CRB -s ruby-on-rails || exit 1" && {
+    echo "$?"
+    touch .built
+    :
+  } || {
+    [[ -n "$BREAK" ]] && break
+  }
+
 done <<EOLX
 activesupport
 activejob

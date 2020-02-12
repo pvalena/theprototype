@@ -68,7 +68,7 @@ done
 
  TO_VERSION="${2:-5.1.3}"
 
- UPDATE_WHERE="${3:-28}"
+ UPDATE_WHERE="${3:-32}"
 
  [[ "$4" ]] && die "Redundant arg: '$4'"
 
