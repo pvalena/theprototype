@@ -8,11 +8,6 @@ baskc () {
 
 checkdebug "$1" && shift
 
-[[ "$1" == "-v" ]] && {
-  VER="$1"
-  shift
-} || VER=
-
 [[ "$1" == "-g" ]] && {
   G2R="$1"
   shift
@@ -22,6 +17,11 @@ checkdebug "$1" && shift
   SIM="$1"
   shift
 } || SIM=
+
+[[ "$1" == "-v" ]] && {
+  VER="$1"
+  shift
+} || VER=
 
 rm -f *.gem
 
@@ -63,8 +63,8 @@ baskc
   [[ -r "$pth" ]] || die "'$pth' missing"
   pth="$(escape "$pth")"
 
-  debug "$pth $VER $G2R $FAST $NOC -r \"$t\""
-  eval "$pth $VER $G2R $FAST $NOC -r \"$t\"" || die "g2r"
+  debug "$pth $FAST $G2R $NOC $VER -r \"$t\""
+  eval "$pth $FAST $G2R $NOC $VER -r \"$t\"" || die "g2r"
 }
 
 [[ "$t" && -r "$t" ]] || die "new spec fle: '$t'"

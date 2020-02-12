@@ -18,16 +18,12 @@ mck () {
   bash -c "set -x ; mock $mar -n --result=./result $c $a $@"
   return $?
 }
-
-[[ "$1" == "-v" ]] && {
-  VER="$1"
-  shift
-} || VER=
+pre='rubygem-'
 
 [[ "$1" == "-e" ]] && {
   FED="f$1"
   shift
-} || FED=f31 # <<<<<<<<<<<<<<<
+} || FED=f32 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-f" ]] && {
   FAST="$1"
@@ -44,16 +40,23 @@ mck () {
   shift
 } || KEEP=
 
-[[ "$1" == "-r" ]] && {
-  REV="$1"
-  shift
-} ||:
-
 [[ "$1" == "-v" ]] && {
   VER="$1"
   shift
 } || VER=
 
+[[ "$1" ]] || die "arg"
+
+[[ "$1" == "-r" ]] && {
+  REV="$1"
+  shift
+  [[ "$1" ]] || die "arg rev"
+  :
+} || {
+  mkdir -p "${pre}$1" || die "mkd"
+
+  cd "${pre}$1" || die "cd"
+}
 
 [[ "$1" ]] || die "arg"
 f="rubygem-$1"
@@ -78,6 +81,18 @@ gem2rpm --fetch -t fedora-27-rawhide -o "$s" "$f.gem" || die "spec"
 [[ -r "$f.gem" ]] || die "fle"
 gem unpack "$f.gem" || die "unpack"
 
+git init || die 'init'
+
+echo "${f}-*.gem" >> .gitignore || die 'ignore'
+
+for x in `spectool -S *.spec | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
+  echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
+done > sources || die 'sources'
+
+git add .gitignore sources *.spec || die 'add'
+
+git commit -am 'Initial commit.' || die 'commit'
+
 [[ "$G2R" ]] || {
  	echo
  	echo "licensecheck:"
@@ -97,7 +112,6 @@ gem unpack "$f.gem" || die "unpack"
   echo "Press N to Quit"
   echo
 
-set -x
   bask "Ready" || exit 1
 
  	SUCC=
