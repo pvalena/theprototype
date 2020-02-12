@@ -7,11 +7,16 @@ require 'irb'
 ###
 
 W = 40
-S = %w[ unknown running starting pending failed empty importing succeeded ]
+S = %w[ unknown running starting pending failed empty importing succeeded canceled passed ]
+E = "\n"
+U = "https://copr.fedorainfracloud.org/coprs/build/"
+C = ["    Bad exit status from /var/tmp/rpm-", 'Executing(%clean']
 
 alias :p :ap
 
-### 
+###
+
+$succeeded = []
 
 def sp n
   ' ' * ( W - n )
@@ -24,53 +29,99 @@ def ps (*a)
   }
 end
 
+def warn(*_) ; end
+
 ###
 
-def main (i = false)
+def main (i = false, rmfile = false)
   dat = {}
   out = ''
 
+  sg = 'bah'
+
+#  Dir.glob('*.log').select { |x| x =~ /rubygem\-#{sg}/ }.each {
   Dir.glob('*.log').each {
     | logf |
 
-    q = ''
-    stat = \
-      if File.empty?(logf)
-        'empty'
-      else
-        q = %x[ grep 'Created builds:' -A 20 "#{logf}" | grep -v ^\- | grep -v ^$ | tr -s ' ' ]
-  
-        q.each_line.select { |x| x =~ /^ [0-9]/ }.last
-      end
-    
-    stat ||= \
-      begin
-        %x[ copr-cli status #{q.split("\n").first.split.last} ]
-      rescue
-        'unknown'
-      end
-      
-    stat = stat.split.last
-      
-    binding.irb unless S.include? stat
-      
-     
-    dat[stat] ||= []
-    dat[stat] << logf.split(?.).first.split(?-)[1..-1].join(?-)
+    stat = ''
+    qnt = File.read(logf)
+    bnr = ''
 
-    if i && logf =~ /#{i}/
-      ps File.read(logf), "\n" + logf + ": " + stat
+    if qnt.nil? || qnt.empty?
+      warn "#{logf}: empty log file"
+      stat = 'empty'
+    else
+      bnr, stat = qnt.scan(/ Build ([0-9]+): (\S+)$/).last
+
+      if ['running', 'pending'].include?(stat) \
+          && qnt.include?("Max retries exceeded with url: ")
+        begin
+          stat = %x[ copr-cli status #{bnr} 2>&1 ]
+          stat = stat.split.last
+          warn "#{logf}: status: #{stat}"
+        rescue
+        end
+      end
+
+      stat = nil unless S.include? stat
+     
+      if stat.nil? || stat.empty?
+        q = %x[ grep '^Executing(%clean)' "#{logf}" ]
+        stat = 'succeeded' unless q.nil? || q.empty? 
+      end
+  
+      stat = 'unknown' if stat.nil? || stat.empty?        
+    end
+    
+    unless S.include? stat
+      puts '[!] Unknown status: ' + stat
+      binding.irb
+    end
+
+    name = logf.split(?.)[0..-2].join(?.)
+    dat[stat] ||= []
+    dat[stat] << name
+    
+    if i && name =~ /#{i}/
+      t = false
+
+      
+      qnt = qnt.split(E).reject do
+        |x| 
+        unless t
+          t = C.detect {
+            |c| x.start_with? c
+          }
+  
+          x =~ /^(INFO|WARNING|Start|Finish): /
+        else
+          true
+        end
+      end
+      
+      ps qnt.last(60),
+        '>> '+ logf + ": " + stat + E + 
+        '  '+ U + bnr
 
       binding.irb
     end
 
-    File.delete(logf) if stat == 'succeeded'
+    if rmfile && stat == 'succeeded'
+      File.delete logf
+    end
   }
 
+  if rmfile
+    dat['succeeded'] ||= []
+    $succeeded = dat['succeeded'] = (dat['succeeded'] + $succeeded).uniq
+  end
+  
   dat.keys.sort.each {
     | k |
     v = dat[k]
     
+    next if v.nil? || v.empty?
+
     out += "\n>>> #{k} <<<\n"
     
     l = 0
@@ -93,16 +144,19 @@ def main (i = false)
 end
 
 ###
+rmfile = ( ARGV.any? && ARGV.first == '-r' )
+ARGV.shift if rmfile
 
 Dir.chdir ARGV.first if ARGV.any?
 
 loop {
   begin
-    x = main
+    x = main false, rmfile
+
     system "clear"
     print x
   
-    r = Timeout.timeout(30) {
+    r = Timeout.timeout(60) {
        $stdin.gets
     }
   rescue Timeout::Error
@@ -111,7 +165,7 @@ loop {
   
   r ||= ''
   r.chomp!
-  break if r.empty?
+  break if r.nil? || r.empty?
   
   main r
 }
