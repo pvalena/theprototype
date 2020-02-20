@@ -176,16 +176,16 @@ mck --unpriv --shell '
 
 TP="$TP\n  - Tests:"
 bl='result/build.log'
-{ grep -q '^Executing(%check)'                                 "$bl" ; } && {
 
-{ grep -q ' 0 failures'        "$bl" || grep -qv ' failures'   "$bl" ; } && {
+grep -q '^Executing(%check)'                            "$bl" && {
+! grep ' failures' "$bl" || grep -E '(^|\s+)0 failures' "$bl" && {
+! grep ' errors'   "$bl" || grep -E '(^|\s+)0 errors'   "$bl" && {
 
-{ grep -q ' 0 errors'          "$bl" || grep -qv ' errors'     "$bl" ; } && {
-
-{ grep -q ' 0 assertions'      "$bl" || grep -qv ' assertions' "$bl" ; } \
+! grep -qE '(^|\s+)0 (assertions|examples)' '$bl' && \
+  grep -qE ' (assertions|examples)' "$bl" \
   \
-  && TP="$TP failed (no assertions)" \
-  || TP="$TP ok"
+  && TP="$TP ok" \
+  || TP="$TP failed (no assertions)"
 :
 } || TP="$TP failed (errors occured)"
 :
@@ -232,7 +232,7 @@ RPML="$(
 [[ -z "$KJ$E" ]] && {
   KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`"
   :
-} || KJ="https://koji.fedoraproject.org/koji/taskinfo?taskID=$kj" \
+} || KJ="https://koji.fedoraproject.org/koji/taskinfo?taskID=$KJ" \
 
 [[ -z "$CR" ]] \
   && CR="_TBD_" \
