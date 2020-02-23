@@ -14,6 +14,9 @@ f2='result/build.log'
 
 l='--release'
 
+me=pvalena
+
+
 srpm () {
   local x=
   [[ -n "$1" ]] && x="$l $1" ||:
@@ -81,6 +84,12 @@ r="$1"
 [[ -t 0 ]] || d=cat
 
 { set +e ; } &>/dev/null
+
+kl="$me@FEDORAPROJECT\.ORG"
+( klist -a | grep -q "${kl}$" ) || {
+  pgrep -x krenew || krenew -i -K 60 -L -b
+  kinit "$kl" -l 30d
+}
 
 cmd="fedpkg $r scratch-build --srpm *.src.rpm"
 
