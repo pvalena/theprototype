@@ -157,6 +157,14 @@ ask () {
 [[ -x "$TST" ]] || warn "KJB shloud be defined and executable"
 [[ -x "$GET" ]] || warn "KJB shloud be defined and executable"
 
+# kinit
+[[ -z "$KOJ" ]] || {
+  kl="$ME@FEDORAPROJECT\.ORG"
+  ( klist -a | grep -q "${kl}$" ) || {
+    pgrep -x krenew || krenew -i -K 60 -L -b
+    kinit "$kl" -l 30d
+  }
+}
 
 # set remote
 clean
@@ -295,20 +303,20 @@ git show | $CDF
 echo
 git status
 
-[[ -z "$EXI" ]] || exit
 git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
 # build
 [[ -z "$KOJ" ]] || {
   ask -s 'Run koji build' && {
-    bash -c "$KJB"
+    bash -c "$KJB" ||:
   }||:
 }
 
 ask -s 'Run copr build' && {
-  bash -c "$CRB $COP"
+  bash -c "$CRB $COP" ||:
 }||:
 
+[[ -z "$EXI" ]] || exit
 #check dont currently work without mock
 ask -s 'Run checks' && {
   bash -c "$TST -c"
