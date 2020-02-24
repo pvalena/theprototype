@@ -41,11 +41,11 @@ usage () {
 
 ## CHECKS ##
 bash -n "$0" || abort 'Syntax'
-python --version &>/dev/null || abort 'Python'
+python2 --version &>/dev/null || abort '`python2` needed'
 
 ## VARS ##
 KEYWORDS="${KEYWORDS:-devconf.cz}"
-PRIVACYSTATUS="${PRIVACYSTATUS:-private}"
+PRIVACYSTATUS="${PRIVACYSTATUS:-unlisted}"
 CATEGORY="${CATEGORY:-28}"
 
 ## INTERNAL ##
@@ -73,7 +73,7 @@ DESC="$1"; shift
 
 ## RUN ##
 [[ -n "$UPLOAD" ]] && {
-  python upload_video.py \
+  python2 upload_video.py \
     --noauth_local_webserver \
     --file="$FNAME" \
     --title="$TITLE" \
@@ -86,7 +86,7 @@ DESC="$1"; shift
 
 set -x
 echo \
-  python upload_video.py \
+  python2 upload_video.py \
     --noauth_local_webserver \
     --file="$FNAME" \
     --title="$TITLE" \
