@@ -14,7 +14,7 @@ Folowing [this guide](https://developers.google.com/youtube/v3/guides/uploading_
    - `run/bin/pip install --upgrade oauth2client`
 
  3. Download (sample) upload script, credentials json.
-   - also attached run.sh
+   - also attached wrapper upload_video.sh
  
  4. You _need_ to create oauth2 credentials.
    - https://console.developers.google.com/apis/credentials
@@ -26,3 +26,8 @@ Folowing [this guide](https://developers.google.com/youtube/v3/guides/uploading_
 
  6. On subsequent runs you should be authenticated, and actually upload videos.
    - Check Youtube studio ([f.e.](https://studio.youtube.com/channel/UCmYAQDZIQGm_kPvemBc_qwg)).
+
+ 7. See `run.rb` to extract metadata upload videos in 1 go
+
+ 8. You probably need bigger quota (request to google pending):
+   - https://developers.google.com/youtube/v3/getting-started#quota
