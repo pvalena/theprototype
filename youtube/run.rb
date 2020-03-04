@@ -57,6 +57,9 @@ EOF
     @onlycheck = argv.first == '-o'
     argv.shift if @onlycheck
 
+    @silent = argv.first == '-s'
+    argv.shift if @silent
+
     @events = load_csv(argv.shift)
     @links = load_csv(argv.shift)
 
@@ -75,7 +78,7 @@ EOF
   def check
     @events = @events.select {
       |e|
-      event(e, 'event_subtype') == 'Presentation' \
+      ['Presentation', 'Discussion'].include?(event(e, 'event_subtype')) \
         &&
       event(e, 'active') == 'Y'
     }
@@ -115,8 +118,10 @@ EOF
           next
         end
         File.readable?(vid) || abort("File not readable: #{vid}")
-        puts
-        verb "Video file: #{File.basename(vid)}"
+        unless @silent
+          puts
+          verb "Video file: #{File.basename(vid)}"
+        end
 
         upload vid, ext
       end
@@ -127,11 +132,17 @@ EOF
     ename = File.basename vid, ".#{ext}"
 
     if is_done(ename)
-      puts "Video already uploaded, skipping."
+      puts "Video already uploaded, skipping." unless @silent
       return
     end
 
-    title, description = get_text ename
+    begin
+      title, description = get_text ename
+    rescue Exception
+      return
+    end
+
+    verb "Uploading video: #{ename}" if @silent
 
     out, err = ['', '']
     suc = local_execute \
