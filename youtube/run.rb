@@ -142,7 +142,7 @@ EOF
       return
     end
 
-    verb "Uploading video: #{ename}" if @silent
+    verb "Uploading video, ID: #{ename}" if @silent
 
     out, err = ['', '']
     suc = local_execute \
@@ -219,9 +219,12 @@ Speakers: #{speakers}
 EOD
 
     if @debug
+      puts " ================================================", ""
+      verb "ID: #{ename}"
       verb "Title: #{title}"
       verb "Description:"
-      description.each_line{ |l| puts (" "*4 + l) }
+      #description.each_line{ |l| puts (" "*4 + l) }
+      description.each_line{ |l| puts l }
     end
 
     [title, description]
