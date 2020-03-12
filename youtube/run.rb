@@ -78,20 +78,26 @@ EOF
   def check
     @events = @events.select {
       |e|
-      ['Presentation', 'Discussion'].include?(event(e, 'event_subtype')) \
-        &&
-      event(e, 'active') == 'Y'
+      unless x = \
+        ['Presentation'].include?(event(e, 'event_subtype')) \
+          && \
+        event(e, 'active') == 'Y'
+        verb "Rejected: " + event(e, 'event_key', 'active', 'event_subtype', 'name').join(' | ')
+      end
+      
+      x
     }
+
     tln = @events.select {
       |e|
       event(e, 'name').length >= (80 - SUFFIX.length)
     }
     unless tln.empty?
-      tln. each {
+      tln.each {
         |e|
         puts event(e, 'event_key', 'name').join(' | ')
       }
-      abort("Error: The above talks have titles too long.")
+      abort "Error: The above talks have titles too long."
     end
 
     if @onlycheck
@@ -106,7 +112,7 @@ EOF
     @dirs.each do |dr|
       File.directory?(dr) || abort("Is not a directory: #{dr}")
 
-      puts "\n>> Uploading from directory: #{dr}"
+      puts "\n>> Directory: #{dr}"
 
       Dir.each_child dr do |vid|
         vid = File.join dr, vid
@@ -161,7 +167,7 @@ EOF
     suc = false unless out.include?('was successfully uploaded')
     suc || abort("> FAILED")
 
-    verb 'OK'
+    verb 'OK' + $/
     set_done ename
     sleep SLEEP
   end  
@@ -195,7 +201,7 @@ EOF
       |e|
       event(e, 'event_key') == ename
     }
-    eve.nil? && abort("Error: Event for video not found.")
+    eve.nil? && abort("Error: Event for video '#{ename}' not found.")
 
     name = event(eve, 'name')
     desc = event(eve, 'description')
