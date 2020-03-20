@@ -84,7 +84,7 @@ WHA=brew
   VER=cat
   shift
   :
-} || VER=
+}
 
 [[ "$1" == "-r" ]] && {
   RAN=R
