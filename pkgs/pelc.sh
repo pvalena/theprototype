@@ -146,9 +146,6 @@ T=
 [[ -z "$p" ]] || { T="" ; pre='???-' ; }          # <<< [placeholder]
 [[ -n "$T" ]] || die 'No package type specified'
 
-# Check if SCL enablement is needed.
-licensee &>/dev/null && isrhel= || isrhel='scl enable rh-ruby24 --'
-
 # Set w1,w2,w3...
 for i in {1..100}; do
   eval "w$i='`cut -d',' -f$i <<< "$w"`'"
@@ -313,7 +310,7 @@ while read z; do
   # Output: licensee
   JSF=
   while read j; do JSF="$JSF, $j" ; done < <(
-    $isrhel licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
+    licensee | grep '^License: ' | cut -d' ' -f2- | sort -u
   )
   out "`cut -d' ' -f2- <<< "$JSF"`"
 
