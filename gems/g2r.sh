@@ -51,52 +51,52 @@ pre='rubygem-'
   REV="$1"
   shift
   [[ "$1" ]] || die "arg rev"
-  :
-} || {
-  mkdir -p "${pre}$1" || die "mkd"
-
-  cd "${pre}$1" || die "cd"
 }
 
 [[ "$1" ]] || die "arg"
-f="rubygem-$1"
+f=
 s=
 
-[[ -n "$REV" ]] \
-  && s="$1" \
-  || {
-    s="rubygem-$1.spec"
-    mkdir -p "$f" || die "mkd"
+[[ -z "$REV" ]] && {
+  g="$1"
+  f="rubygem-${g}"
+  s="${f}.spec"
+  mkdir -p "$f"  || die "mkd"
+  cd "$f" || die "cd"
 
-    cd "$f" || die "cd"
+  [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
+  # Fetch using gem2rpm instead
+  #gem fetch "$1" || die "fetch"
+  :
+} || {
+  s="$1"
+  f="`basename -s ".spec" "$1"`"
+  g="`echo "$f" | cut -d'-' -f2-`"
+}
 
-    [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
-    # Fetch using gem2rpm instead
-    #gem fetch "$1" || die "fetch"
-    REV=
-  }
+gem2rpm --fetch -t fedora-27-rawhide -o "$s" "$g" || die "spec"
 
-gem2rpm --fetch -t fedora-27-rawhide -o "$s" "$f.gem" || die "spec"
+gf="`ls ${g}-*.gem`"
 
-[[ -r "$f.gem" ]] || die "fle"
-gem unpack "$f.gem" || die "unpack"
+[[ -r "$gf" ]] || die "fle"
+gem unpack "$gf" || die "unpack"
 
 git init || die 'init'
 
-echo "${f}-*.gem" >> .gitignore || die 'ignore'
+echo "${g}-*.gem" >> .gitignore || die 'ignore'
 
-for x in `spectool -S *.spec | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
+for x in `spectool -S "$s" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev` ; do
   echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`"
 done > sources || die 'sources'
 
-git add .gitignore sources *.spec || die 'add'
+git add .gitignore sources "$s" || die 'add'
 
 git commit -am 'Initial commit.' || die 'commit'
 
 [[ "$G2R" ]] || {
  	echo
  	echo "licensecheck:"
- 	licensecheck -r "$f" | grep -vE "UNKNOWN$"
+ 	licensecheck -r "." | grep -vE "UNKNOWN$"
  	echo
 
 	[[ "$REV" ]] || {
@@ -125,7 +125,7 @@ git commit -am 'Initial commit.' || die 'commit'
 
 			mar='--new-chroot'
 
-			mck -remove "rubygem-$f"
+			mck -remove "$f"
 
 			mck i `ls result/*.x86_64.rpm` `ls result/*.noarch.rpm` && {
 				echo -e "\nInstall ok!"
