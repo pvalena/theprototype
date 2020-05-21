@@ -50,12 +50,12 @@ f="${l}/${p}.log"
 touch "$f"
 
 ls *.src.rpm &>/dev/null || {
-  fedpkg --dist f31 srpm || {
+  fedpkg --dist f33 srpm || {
     echo "Warning: modifying spec file..." >&2
     sed -i 's/^Recommends: /Requires: /' *.spec
     sed -i '/^Suggests: / s/^/#/' *.spec
     sed -i -e 's/\(Requires\:\)\s*(.*with\(.*\))/\1\2/' *.spec
-    fedpkg --dist f31 srpm
+    fedpkg --dist f33 srpm
   }
 }
 

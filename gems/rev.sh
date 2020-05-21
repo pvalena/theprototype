@@ -95,29 +95,25 @@ x="`basename -s ".gem" "$x"`"
   baskc
 }
 
- l="`basename -s ".spec" "$l"`"
+l="`basename -s ".spec" "$l"`"
 
- mv -v "$x.gem" "orig/"
+mv -v "$x.gem" "orig/"
 
- gem fetch "`sed -e 's/^rubygem-//' <<< "$l"`" || die 'Gem fetch failed'
- [[ "$x" && -r "$x.gem" ]] || die 'Gem file missing #2'
+gem fetch "`sed -e 's/^rubygem-//' <<< "$l"`" || die 'Gem fetch failed'
+[[ "$x" && -r "$x.gem" ]] || die 'Gem file missing #2'
 
- cmp "$x.gem" "orig/$x.gem" || die 'Gem file is different'
+cmp "$x.gem" "orig/$x.gem" || die 'Gem file is different'
 
- [[ -d "$x" ]] || die "src dir: '$x'"
+[[ -d "$x" ]] || die "src dir: '$x'"
 
 [[ "$FAST" ]] || {
   find "$x" -type f -exec sh -c "file -i {} | grep -v binary >/dev/null" \; -print | while read e; do lss "$e"; done
   baskc
 }
 
- echo -e "\nBinary:"
- find "$x" -type f -exec sh -c "file -i {} | grep binary >/dev/null" \; -print
- baskc
-
- echo -e "\nPkgDb-cli:"
- pkgdb-cli list --branch master "$l"
- baskc
+echo -e "\nBinary:"
+find "$x" -type f -exec sh -c "file -i {} | grep binary >/dev/null" \; -print
+baskc
 
 [[ -d "$l" ]] && {
  	rm -rf "$l/" || die "failed to remove '$l/'"

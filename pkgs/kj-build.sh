@@ -51,7 +51,7 @@ r="$1"
     } || {
       s=
       c=1
-      for t in "$r" '' 'master' 'f32'; do
+      for t in "$r" '' 'master' 'f33'; do
         srpm "$t" && {
           s="$t"
           c=0
@@ -88,7 +88,7 @@ r="$1"
 kl="$me@FEDORAPROJECT\.ORG"
 ( klist -a | grep -q "${kl}$" ) || {
   pgrep -x krenew || krenew -i -K 60 -L -b
-  kinit "$kl" -l 30d
+  kinit "$kl"
 }
 
 cmd="fedpkg $r scratch-build --srpm *.src.rpm"

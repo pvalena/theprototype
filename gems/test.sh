@@ -8,7 +8,7 @@ bash -n "$0"
 MYD="`readlink -e "$(dirname "$0")/.."`"
 [[ -d "$MYD" ]]
 
-rel='f32'
+rel='f33'
 
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
@@ -181,7 +181,7 @@ grep -q '^Executing(%check)'                            "$bl" && {
 ! grep ' failures' "$bl" || grep -E '(^|\s+)0 failures' "$bl" && {
 ! grep ' errors'   "$bl" || grep -E '(^|\s+)0 errors'   "$bl" && {
 
-! grep -qE '(^|\s+)0 (assertions|examples)' '$bl' && \
+! grep -qE '(^|\s+)0 (assertions|examples)' "$bl" && \
   grep -qE ' (assertions|examples)' "$bl" \
   \
   && TP="$TP ok" \

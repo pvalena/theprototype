@@ -3,5 +3,7 @@ set -e
 bash -n "$0"
 set +e
 
-ls -d rubygem-*/ | \
-  xargs -i bash -c "set -x ; cd '{}' || exit 255 ; git remote add pvalena 'ssh://pvalena@pkgs.fedoraproject.org/forks/pvalena/rpms/{}' ; gitc -b rebase || gitc rebase ; R=\$? ; [[ \$R -eq 0 ]] && gitf pvalena && gitu -uf pvalena rebase || exit 255"
+x=pvalena
+
+ls -d rubygem-*/ | cut -d'/' -f1 | \
+  xargs -i bash -c "set -x ; cd '{}' || exit 255 ; git remote add $x ssh://$x@pkgs.fedoraproject.org/forks/$x/rpms/{}.git ; git fetch $x ; gitc rebase || gitcb rebase ; R=\$? ; [[ \$R -eq 0 ]] && gitb -u pvalena/rebase || exit 255"
