@@ -48,7 +48,9 @@ rails
 actionview
 actionpack
 actionmailer
+actionmailbox
+actiontext
 actioncable
-railties
 activestorage
+railties
 EOLX
