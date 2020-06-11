@@ -63,8 +63,8 @@ COPR_URL="https://copr-be.cloud.fedoraproject.org/results/$me/"
   shift
 } ||:
 
-tb='copr'
-rm='copr/master'
+tb='copr-dist'
+rm="${tb}/master"
 
 [[ -n "$KJ" ]] || {
   kl="$me@FEDORAPROJECT\.ORG"
@@ -98,7 +98,7 @@ CINIT=
     #  git remote remove "$tb"
     #done
 
-    git remote add "$tb" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
+    git remote add "${tb}" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
     gitf "$tb"
     gitc "$tb" \
       || gitcb "$tb" -t "$rm"
