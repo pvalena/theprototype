@@ -243,9 +243,9 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 }
 
 # Bug search
-B="$($BUG "$nam")"
+B="$($BUG "rubygem-$nam")"
 [[ -n "$B" ]] && {
-  R="Resolves: rhbz#???????"
+  R="Resolves: rhbz#$B"
   :
 } || R=
 
