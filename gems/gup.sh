@@ -7,6 +7,8 @@ CLEAN_EXT="tgz gem gz xz tar bz2 rpm"
 ME=pvalena
 REM=rebase
 ORG=origin
+NL='
+'
 
 # dynamic
 CDF="`which colordiff`"
@@ -15,7 +17,8 @@ LOC="`dirname "$(dirname "$LOC")"`"
 CRB="${LOC}/pkgs/cr-build.sh"
 KJB="${LOC}/pkgs/kj-build.sh"
 TST="${LOC}/gems/test.sh"
-GET="${LOC}/gems/get.sh"
+#GET="${LOC}/gems/get.sh"
+BUG="${LOC}/pkgs/bug.sh"
 
 # helpers
 die () {
@@ -155,7 +158,7 @@ ask () {
 [[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
 [[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
 [[ -x "$TST" ]] || warn "KJB shloud be defined and executable"
-[[ -x "$GET" ]] || warn "KJB shloud be defined and executable"
+#[[ -x "$GET" ]] || die "GET needs to be defined and executable"
 
 # kinit
 [[ -z "$KOJ" ]] || {
@@ -239,9 +242,16 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
 }
 
+# Bug search
+B="$($BUG "$nam")"
+[[ -n "$B" ]] && {
+  R="Resolves: rhbz#???????"
+  :
+} || R=
+
 # bump
 M="Update to $nam ${ver}."
-c="rpmdev-bumpspec -c '$M'"
+c="rpmdev-bumpspec -c '$M$NL  $R'"
 
 bash -c "$c -n '$ver' '$X'" || {
   sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
@@ -257,21 +267,24 @@ grep -A 10 ' git clone ' "$X" | grep '^#' \
    | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
 
 # run the command get ~magic~
-bash -c "$GET '$X' '$ver'" || die 'Failed to execute $GET'
-
-#
-# cmd=$( grep -A 10 '^# git clone ' "$X" | grep '^#' |  grep -E "$gcom" | cut -d'#' -f2- | xargs -i echo -n "{} && " \
-#   | xargs -i echo "set -x ; {}echo Ok || exit 1" )
-#
-# [[ -z "$cmd" ]] || {
-#   echo
-#   echo "\$cmd: $cmd"
-#   ask 'execute $cmd'
-#   bash -c "$cmd" || die 'Failed to execute $cmd'
-# }
+# bash -c "$GET '$X' '$ver'" || die 'Failed to execute $GET'
+find -mindepth 2 -type d -name .git -exec git fetch origin \;
+gcom="git|cd|tar"
+cmd=$(
+    grep -A 10 '^# git clone ' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(${gcom})\s*" \
+      | xargs -i echo -n "; {}" \
+      | xargs -i echo "set -x{} && echo Ok || exit 1"
+  )
+[[ -z "$cmd" ]] || {
+  echo
+  echo "\$cmd: $cmd"
+  ask 'execute $cmd'
+  bash -c "$cmd" || die 'Failed to execute $cmd'
+}
+find -mindepth 2 -type f -name '*.txz' -o -name '*.tgz' | xargs -ri cp -v "{}" .
 
 # commit
-git commit -am "$M" || die "Failed to commit with message '$M'"
+git commit -am "${M}$NL$NL${R}" || die "Failed to commit with message '$M'"
 
 # new srpm
 srpm new
