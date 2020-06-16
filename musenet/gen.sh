@@ -2,8 +2,10 @@
 #
 # gen.sh SONGS [GENRE TEMPERATURE TRUNCTATION LENGTH]
 #
+# You'll get number of SONGS times four.
+#
 # Requirements:
-#           base64 shuf curl
+#           base64 shuf curl jq
 #
 # Examples:
 #           ./gen.sh 1 _ _ 27 400      # default
@@ -22,14 +24,20 @@ die () {
 
 GS="chopin mozart rachmaninoff ladygaga country disney jazz bach beethoven journey thebeatles video broadway franksinatra bluegrass tchaikovsky"
 TS="`seq 0 7`"
-P=3
 myd="$(dirname "$0")"
 
 # Args
-[[ -z "$1" ]] && z=1 || {
+[[ "$1" == '-r' ]] && {
+  P="$2"
+  shift 2
+  :
+} || P=3
+
+[[ -n "$1" ]] && {
   z="$1"
   shift
-}
+  :
+} || z=1
 
 # Nr of songs = 4*z
 for l in {1..$z}; do
