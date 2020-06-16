@@ -1,8 +1,10 @@
 #!/bin/zsh
 #
-# gen.sh SONGS [GENRE TEMPERATURE TRUNCTATION LENGTH]
+# gen.sh [-r] SONGS [GENRE TEMPERATURE TRUNCTATION LENGTH]
 #
 # You'll get number of SONGS times four.
+#
+#   -r      retries (default: 5)
 #
 # Requirements:
 #           base64 shuf curl jq
@@ -31,7 +33,7 @@ myd="$(dirname "$0")"
   P="$2"
   shift 2
   :
-} || P=3
+} || P=5
 
 [[ -n "$1" ]] && {
   z="$1"
