@@ -245,13 +245,14 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 # Bug search
 B="$($BUG "rubygem-$nam")"
 [[ -n "$B" ]] && {
-  R="Resolves: rhbz#$B"
+  B="Resolves: rhbz#$B"
+  R="${NL}  $B"
   :
-} || R=
+} || B=
 
 # bump
-M="Update to $nam ${ver}."
-c="rpmdev-bumpspec -c '$M$NL  $R'"
+M="Update to $nam ${ver}.$NL$NL$B"
+c="rpmdev-bumpspec -c '$M$R'"
 
 bash -c "$c -n '$ver' '$X'" || {
   sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
