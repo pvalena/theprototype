@@ -251,7 +251,7 @@ B="$($BUG "rubygem-$nam")"
 } || B=
 
 # bump
-M="Update to $nam ${ver}.$NL$NL$B"
+M="Update to $nam ${ver}."
 c="rpmdev-bumpspec -c '$M$R'"
 
 bash -c "$c -n '$ver' '$X'" || {
@@ -272,8 +272,7 @@ grep -A 10 ' git clone ' "$X" | grep '^#' \
 find -mindepth 2 -type d -name .git -exec git fetch origin \;
 gcom="git|cd|tar"
 cmd=$(
-    grep -A 10 '^# git clone ' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(${gcom})\s*" \
-      | xargs -i echo -n "; {}" \
+    grep -B 10 '^Source' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(${gcom})\s*" \            | xargs -i echo -n "; {}" \
       | xargs -i echo "set -x{} && echo Ok || exit 1"
   )
 [[ -z "$cmd" ]] || {
@@ -285,7 +284,7 @@ cmd=$(
 find -mindepth 2 -type f -name '*.txz' -o -name '*.tgz' | xargs -ri cp -v "{}" .
 
 # commit
-git commit -am "${M}$NL$NL${R}" || die "Failed to commit with message '$M'"
+git commit -am "${M}$NL$NL${B}" || die "Failed to commit with message '$M'"
 
 # new srpm
 srpm new
