@@ -4,9 +4,10 @@ bash -n "$0" || exit 1
 
 # const
 CLEAN_EXT="tgz gem gz xz tar bz2 rpm"
-ME=pvalena
-REM=rebase
-ORG=origin
+ME='pvalena'
+REM='rebase'
+ORG='origin'
+PRE='rubygem-'
 NL='
 '
 
@@ -17,8 +18,10 @@ LOC="`dirname "$(dirname "$LOC")"`"
 CRB="${LOC}/pkgs/cr-build.sh"
 KJB="${LOC}/pkgs/kj-build.sh"
 TST="${LOC}/gems/test.sh"
-#GET="${LOC}/gems/get.sh"
+GET="${LOC}/gems/sources.sh"
 BUG="${LOC}/pkgs/bug.sh"
+FRK="${LOC}/fedora/fork_package.sh"
+
 
 # helpers
 die () {
@@ -42,14 +45,14 @@ clean () {
 # Note: everything should be commited before every srpm call
 srpm () {
   E="`fedpkg --release $REL srpm`" || {
-    warn "Failed to recreate $1 srpm" "$E"
+    warn "Failed to reate $1 srpm" "$E"
     warn 'Trying to remove' 'richdeps'
 
     sed -i 's/^Recommends: /Requires: /' *.spec
     sed -i '/^Suggests: / s/^/#/' *.spec
 
     E="`fedpkg --release $REL srpm`" || {
-      die "Failed to recreate $1 srpm(2)" "$E"
+      die "Failed to create $1 srpm(2)" "$E"
     }
   }
   [[ -n "$CON" ]] || {
@@ -89,16 +92,17 @@ ask () {
 }
 
 # args
-[[ "$1" == "-d" ]] && {
-	shift
-  set -x
-}
-
-[[ "$1" == "-c" ]] && {
+[[ "$1" == "-b" ]] && {
   COP="$2"
 	shift 2
 	:
 } || COP=rubygems
+
+[[ "$1" == "-c" ]] && {
+  CON="$1"
+	shift
+	:
+} || CON=
 
 [[ "$1" == "-d" ]] && {
 	shift
@@ -111,12 +115,6 @@ ask () {
 	:
 } || KOJ=y
 
-[[ "$1" == "-k" ]] && {
-  CON="$1"
-	shift
-	:
-} || CON=
-
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
 	REM="${REM}-$REL"
@@ -125,6 +123,25 @@ ask () {
 } || {
   REL='master'
 }
+
+[[ "$1" == "-p" ]] && {
+	PKG="$2"
+	shift 2
+	:
+} || PKG="$(basename "$PWD")"
+
+[[ "$1" == "-s" ]] && {
+	SKI="$1"
+	CON="$1"
+	shift
+	:
+} || SKI=
+
+[[ "$1" == "-u" ]] && {
+	SIL="&>/dev/null"
+	shift
+	:
+} || SIL=
 
 [[ "$1" == "-v" ]] && {
 	ver="-v $2"
@@ -158,6 +175,7 @@ ask () {
 [[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
 [[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
 [[ -x "$TST" ]] || warn "KJB shloud be defined and executable"
+[[ -x "$FRK" ]] || warn "FRK shloud be defined and executable"
 #[[ -x "$GET" ]] || die "GET needs to be defined and executable"
 
 # kinit
@@ -169,81 +187,90 @@ ask () {
   }
 }
 
-# set remote
 clean
+grep -q "^$PRE" <<< "$PKG" || die "Couldn't autodetect package name: '$PKG'"
+
+# set remote
 git fetch "$ORG" || die 'Failed to git fetch $ORG'
 git fetch "$ME" || {
+  bash -c "$FRK '$PKG'"
   git remote -v | grep -q "^$ME" \
-    || git remote add "$ME" "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/`basename "$PWD"`.git"
+    || git remote add "$ME" "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/${PKG}.git"
   git fetch "$ME" || warn "Failed to fetch '$ME'"
 }
 
 # status
-git show | $CDF
-echo
-git diff | $CDF
-echo
-git status
+[[ -n "$SIL" ]] || {
+  git show | $CDF
+  echo
+  git diff | $CDF
+  echo
+  git status
+}
 
 [[ -n "$CON" ]] || {
   ask "Stash & reset the repository"
 
-  # reset
-  git stash || die 'Failed to stash git'
+  {
+    # reset
+    git stash || die 'Failed to stash git'
 
-  git checkout "$REM" || {
-    git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
-  }
-  git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
+    git checkout "$REM" || {
+      git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
+    }
+    git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
 
-  git reset --hard "$ORG/$REL" || die 'Failed to reset git'
+    git reset --hard "$ORG/$REL" || die 'Failed to reset git'
+
+  } | bash -c "cat $SIL"
 }
 
 # spec
 X="`readlink -e *.spec`" || die 'Spec file not found'
-
-# old srpm
-srpm old
-sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
-rm *.src.rpm||:
-
 nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
-nam2="$(rev <<< "$sn" | cut -d'-' -f3- | rev)"
-[[ -n "$nam" ]] && {
-  [[ "$nam" == "$nam2" ]] || die "name inconsistency- should be: '$nam'"
-  :
-} || nam="$nam2"
-[[ -n "$nam" ]] || die "Bad NAME in '$sn' and '$X'"
+[[ -n "$nam" ]] || die "Bad NAME in '$X'"
+[[ "${nam}" == "${PKG}" ]] || die "Failed package name check: '$PKG' vs '$nam'"
 
-# old version
-ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
-ov2="$(rev <<< "$sn" | cut -d'-' -f2 | rev)"
-[[ -n "$ov" ]] && {
-  [[ "$ov" == "$ov2" ]] || die "Old version inconsistency- should be: '$ov'"
-  :
-} || ov="$ov2"
-[[ -n "$ov" ]] || die "Bad version in '$sn' and '$X'"
+nam="`cut -d'-' -f2- <<< "$nam"`"
 
-grep '^rubygem-' <<< "$nam" && nam="`cut -d'-' -f2- <<< "$nam"`"
+[[ -n "$SKI" ]] || {
+  # old srpm
+  srpm old
+  sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
+  rm *.src.rpm||:
+
+  nam2="$(rev <<< "$sn" | cut -d'-' -f3- | rev)"
+  [[ "$PKG" == "$nam2" ]] \
+    || die "name inconsistency- srpm name should be: '$PKG' not '$nam2'"
+
+  # old version
+  ov="`rpmspec -q --qf '%{VERSION}\n' "$X" | head -1`"
+  [[ -n "$ov" ]] || die "Bad version in '$sn' and '$X'"
+
+  ov2="$(rev <<< "$sn" | cut -d'-' -f2 | rev)"
+  [[ "$ov" == "$ov2" ]] || die "Old version inconsistency- should be: '$ov' not '$ov2'"
+}
 
 # new
 rm *.gem||:
 gem fetch "$nam" $ver || die "gem fetch failed"
+
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
-[[ "$nam" == "`rev <<< "$f" | cut -d'-' -f2- | rev`" ]] || die "Failed gem name check of file: '$f'"
+[[ "$nam" == "`rev <<< "$f" | cut -d'-' -f2- | rev`" ]] \
+  || die "Failed gem name check of file: '$f'"
 
 xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 [[ -n "$ver" ]] && ver="`cut -d' ' -f2 <<< "$ver"`" || ver="$xv"
 
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
-[[ -n "$CON" ]] || {
+[[ -n "$SKI" ]] || {
   [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
 }
 
 # Bug search
-B="$($BUG "rubygem-$nam")"
+B="$($BUG "$PKG")"
 [[ -n "$B" ]] && {
   B="Resolves: rhbz#$B"
   R="${NL}  $B"
@@ -252,39 +279,33 @@ B="$($BUG "rubygem-$nam")"
 
 # bump
 M="Update to $nam ${ver}."
-c="rpmdev-bumpspec -c '$M$R'"
-
-bash -c "$c -n '$ver' '$X'" || {
-  sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
-  sed -i "s/^\(Release:\)\s*[0-9]*\(.*\)$/\1 0\2/" "$X"
-
-  bash -c "$c '$X'" \
-    || die "Failed to bump spec with message '$M'"
-}
-
-# additional sources
-# newer version
-grep -A 10 ' git clone ' "$X" | grep '^#' \
-   | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" "$X""
-
-# run the command get ~magic~
-# bash -c "$GET '$X' '$ver'" || die 'Failed to execute $GET'
-find -mindepth 2 -type d -name .git -exec git fetch origin \;
 gcom="git|cd|tar"
-cmd=$(
-    grep -B 10 '^Source' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(${gcom})\s*" \            | xargs -i echo -n "; {}" \
-      | xargs -i echo "set -x{} && echo Ok || exit 1"
-  )
-[[ -z "$cmd" ]] || {
-  echo
-  echo "\$cmd: $cmd"
-  ask 'execute $cmd'
-  bash -c "$cmd" || die 'Failed to execute $cmd'
+
+[[ -n "$SKI" ]] || {
+  c="rpmdev-bumpspec -c '$M$R'"
+
+  bash -c "$c -n '$ver' '$X'" || {
+    sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
+    sed -i "s/^\(Release:\)\s*[0-9]*\(.*\)$/\1 0\2/" "$X"
+
+    bash -c "$c '$X'" \
+      || die "Failed to bump spec with message '$M'"
+  }
+
+  # additional sources
+  # newer version
+  grep -B 20 '^Source' "$X" | grep '^#' | grep -E "^#\s*(${gcom})\s*" \
+     | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" \"$X\""
 }
-find -mindepth 2 -type f -name '*.txz' -o -name '*.tgz' | xargs -ri cp -v "{}" .
+
+# run the command get sources and write sources file
+bash -c "$GET '$X' '$gcom' '$YES'" || die 'Failed to execute $GET'
 
 # commit
-git commit -am "${M}$NL$NL${B}" || die "Failed to commit with message '$M'"
+M="${M}$NL$NL${B}"
+[[ -n "$SKI" ]] || {
+  git commit -am "${M}" || die "Failed to commit with message '$M'"
+}
 
 # new srpm
 srpm new
@@ -308,29 +329,43 @@ srpm new
 # compare
 echo
 gem compare -bk "$nam" "$ov" "$ver"
-ask 'Continue with commit ammend'
 
-git commit --amend -am "$M" || die "Failed to amend"
+[[ -n "$SKI" ]] || {
+  ask 'Continue with commit ammend'
+  git commit --amend -am "$M" || die "Failed to amend"
+}
 
 git show | $CDF
 echo
-git status
+[[ -z "$SIL" ]] || git status -uno
 
-git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
+git push -u "$ME" "$REM" || warn "Could not push to '$ME/$REM'"
 
 # build
 [[ -z "$KOJ" ]] || {
   ask -s 'Run koji build' && {
-    bash -c "$KJB" ||:
-  }||:
+    bash -c "$KJB $SIL"
+  }
 }
 
 ask -s 'Run copr build' && {
-  bash -c "$CRB $COP" ||:
-}||:
+  bash -c "set -x; $CRB -c $COP $SIL"
 
-[[ -z "$EXI" ]] || exit
-#check dont currently work without mock
+  l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
+  [[ -r "$l" ]] || die "COPR log not found"
+
+  B="$(grep '^Created builds: ' "$l" | sort -u)"
+  [[ -z "$B" ]] && head -20 "$l"
+
+  # Build has failed but it might have been just EPEL
+  grep -B 15 '^Executing(%clean):' "$l" | grep -q '^+ exit 0$' \
+    || die "Build failed: \n`cat "$l"`"
+
+  echo "$B"
+}
+
+[[ -z "$EXI" ]] || exit 0
+
 ask -s 'Run checks' && {
-  bash -c "$TST -c"
-}||:
+  bash -c "$TST -c $SIL"
+}

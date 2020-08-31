@@ -6,7 +6,15 @@ baskc () {
   bask "Continue" || die "-->User Quit"
 }
 
-checkdebug "$1" && shift
+[[ "$1" == "-d" ]] && {
+  DEBUG="$1"
+  shift
+} || DEBUG=
+
+[[ "$1" == "-f" ]] && {
+  FAST="$1"
+  shift
+} || FAST=
 
 [[ "$1" == "-g" ]] && {
   G2R="$1"
@@ -45,7 +53,7 @@ f="`ls orig/*.src.rpm`"
 [[ -r "$s" ]] || die "spec fle"
 [[ -r "$f" ]] || die "src fle"
 
-rpm2cpio "$f" | cpio -idmv --no-absolute-filenames
+rpm2cpio "$f" | cpio -idmvu --no-absolute-filenames
 rpmlint -i "$f" "$s"
 
 l="`basename "$s"`"
@@ -63,8 +71,8 @@ baskc
   [[ -r "$pth" ]] || die "'$pth' missing"
   pth="$(escape "$pth")"
 
-  debug "$pth $FAST $G2R $NOC $VER -r \"$t\""
-  eval "$pth $FAST $G2R $NOC $VER -r \"$t\"" || die "g2r"
+  debug "$pth $FAST -g $NOC $VER -r \"$t\""
+  eval "$pth $FAST -g $NOC $VER -r \"$t\"" || die "g2r"
 }
 
 [[ "$t" && -r "$t" ]] || die "new spec fle: '$t'"

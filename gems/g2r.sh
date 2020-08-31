@@ -4,7 +4,7 @@
 
 bash -n "$0" || exit 7
 
-mar='--new-chroot --bootstrap-chroot'
+mar='--isolation=nspawn --bootstrap-chroot'
 mck () {
   local c=
   [[ -n "$cnf" ]] && c="-r $cnf"
@@ -23,7 +23,7 @@ pre='rubygem-'
 [[ "$1" == "-e" ]] && {
   FED="f$1"
   shift
-} || FED=f32 # <<<<<<<<<<<<<<<
+} || FED=f33 # <<<<<<<<<<<<<<<
 
 [[ "$1" == "-f" ]] && {
   FAST="$1"
@@ -74,7 +74,7 @@ s=
   g="`echo "$f" | cut -d'-' -f2-`"
 }
 
-gem2rpm --fetch -t fedora-27-rawhide -o "$s" "$g" || die "spec"
+gem2rpm --fetch -o "$s" "$g" || die "spec"
 
 gf="`ls ${g}-*.gem`"
 
