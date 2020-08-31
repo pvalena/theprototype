@@ -31,6 +31,7 @@ d=lss
 
 n="$1"
 [[ -n "$n" ]]
+[[ ! "${n:0:1}" == '-' ]]
 
 x="${2}"
 [[ -n "$x" ]] || x='fedora-rawhide-x86_64'
@@ -50,12 +51,12 @@ f="${l}/${p}.log"
 touch "$f"
 
 ls *.src.rpm &>/dev/null || {
-  fedpkg --dist f33 srpm || {
+  fedpkg --dist f34 srpm || {
     echo "Warning: modifying spec file..." >&2
     sed -i 's/^Recommends: /Requires: /' *.spec
     sed -i '/^Suggests: / s/^/#/' *.spec
     sed -i -e 's/\(Requires\:\)\s*(.*with\(.*\))/\1\2/' *.spec
-    fedpkg --dist f33 srpm
+    fedpkg --dist f34 srpm
   }
 }
 
@@ -78,7 +79,7 @@ while :; do
   sleep 15
   {
     echo "$O"
-    u="${COPR_URL}${n}/${x}/`printf "%08d" $b`-${p}/builder-live.log.gz"
+    u="${COPR_URL}${n}/${x}/`printf "%08d" "$b"`-${p}/builder-live.log.gz"
     echo "> $u"
     curl -sLk "$u" | zcat | uniq
 

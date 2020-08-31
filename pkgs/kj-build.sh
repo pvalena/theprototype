@@ -29,8 +29,9 @@ d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
 [[ "$1" == '-q' ]] && Q=y && shift
 [[ "$1" == '-s' ]] && S=y && shift
-[[ '-' == "${1:0:1}" ]] && exit 2
-
+[[ '-' == "${1:0:2}" ]] || {
+  [[ '-' == "${1:0:1}" ]] && exit 2
+}
 [[ -z "$Q" ]] || set -x
 
 r="$1"
@@ -91,7 +92,7 @@ kl="$me@FEDORAPROJECT\.ORG"
   kinit "$kl"
 }
 
-cmd="fedpkg $r scratch-build --srpm *.src.rpm"
+cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $@"
 
 [[ -z "$Q" ]] || {
   X="$( bash -c "${cmd} --nowait" 2>&1 )" || abort "Failed:\n$X"
@@ -124,7 +125,7 @@ bash -c "${cmd}" 2>&1 \
       done
 
       bash -c "$d '$f2' '$f1'"
-   done
+    done
 
 exit 0
 ###########################################################

@@ -34,24 +34,23 @@ shift
 } || creator='upstream-release-monitoring'
 
 [[ -n "$1" ]] && {
-  status="$1"
-  shift
-  :
-} || status='NEW'
-
-[[ -n "$1" ]] && {
   summary="$1"
   shift
   :
 } || summary="${component}+is+available"
 
-QUERY="product=${product}&component=${component}&creator=${creator}&summary=${summary}&status=${status}"
+for status in ASSIGNED NEW; do
 
-R=0
-OUT="$(
-  curl -s "${BZ_REST}bug?${QUERY}" \
-    | jq -r '.bugs[].id'
-)" || R=1
-[[ $R -eq 0 ]] || abort 'Curl failed; stdout:' "$OUT"
+  QUERY="product=${product}&component=${component}&creator=${creator}&summary=${summary}&status=${status}"
+
+  R=0
+  OUT="$(
+    curl -s "${BZ_REST}bug?${QUERY}" \
+      | jq -r '.bugs[].id'
+  )" || R=1
+  [[ $R -eq 0 ]] || abort 'Curl failed; stdout:' "$OUT"
+
+  [[ -n "$OUT" ]] && break
+done
 
 [[ -z "$OUT" ]] || echo "$OUT"
