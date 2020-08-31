@@ -29,7 +29,7 @@ echo
 
 while [[ "$1" ]]; do
   koji list-tagged $LAT "$1" \
-    | grep -E "^rubygem-(acti(on(cable|mailer|pack|view)|ve(storage|job|model|record|support))|rail(s|ties))-$VER" \
+    | grep -E "^rubygem-(acti(on(cable|mail(er|box)|text|pack|view)|ve(storage|job|model|record|support))|rail(s|ties))-$VER" \
     | tr -s '\t' ' ' | cut -d' ' -f1 | sort -u | $PST
 
   echo

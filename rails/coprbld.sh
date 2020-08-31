@@ -18,7 +18,19 @@ set +e
 [[ "$1" == '-n' ]] && {
   BREAK=
   shift
+  :
 } || BREAK=y
+
+[[ "$1" == '-w' ]] && {
+  W="$1"
+  shift 2
+  :
+} || W=15
+
+[[ -n "$1" ]] && {
+  echo "Unknown arg: '$1'" >&2
+  exit 2
+}
 
 while read x; do
   y="rubygem-${x}"
@@ -30,27 +42,28 @@ while read x; do
 
   [[ -r .built ]] && continue
 
-  set -o pipefail
-  bash -c "$CRB -s ruby-on-rails || exit 1" && {
-    echo "$?"
+  $CRB ruby-on-rails && {
     touch .built
+    git push
     :
   } || {
     [[ -n "$BREAK" ]] && break
   }
 
+  sleep "$W"
+
 done <<EOLX
 activesupport
 activejob
 activemodel
-activerecord
 rails
+railties
 actionview
 actionpack
+activerecord
 actionmailer
 actionmailbox
 actiontext
 actioncable
 activestorage
-railties
 EOLX

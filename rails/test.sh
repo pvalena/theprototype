@@ -53,9 +53,9 @@ usage () {
 
 [[ '-s' == "$1" ]] && { S="$1" ; shift ; } || S=
 
-[[ '-t' == "$1" ]] && { shift ; T='--enablerepo=updates-testing' ; } || T=
+[[ '-t' == "$1" ]] && { shift ; mar="$mar --enablerepo=updates-testing" ; }
 
-[[ '--' == "$1" ]] && shift
+[[ -z "$1" ]] || die "Unknown arg: $1"
 
  #echo rubygem-{spring-watcher-listen,listen,rails,sqlite3,coffee-rails,sass-rails,uglifier,jquery-rails,turbolinks,jbuilder,therubyracer,sdoc,spring,byebug,web-console,io-console,bigdecimal} \
  # | xargs -n1 mock "$@" -n -qi
@@ -76,15 +76,23 @@ usage () {
   mck i $I || die 'additional install failed'
 }
 
-mck -unpriv --chroot "set -xe ; cd && rm -rf app/"
-sleep 0.1
-mck -unpriv --chroot "set -xe ; cd && rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" || die "rails new failed"
-sleep 0.1
-mck -unpriv --chroot "set -xe ; cd ~/app && sed -i 's/\(gem..puma.\).*/\1/' Gemfile" || die "Gemfile edits failed"
-sleep 0.1
-mck -unpriv --chroot "set -xe ; cd ~/app && sed -i 's/\(gem..listen.\).*/\1/' Gemfile" || die "Gemfile edits failed"
-sleep 0.1
-mck -unpriv --chroot "set -xe ; cd ~/app && bundle install --local --without development test" || die "bundle install"
-sleep 0.1
-mck -unpriv --chroot "set -e  ; cd ~/app ; ( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q '<title>Ruby on Rails</title>' && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1" || die '`rails server` failed'
-sleep 0.1
+for cmd in \
+  "cd; [[ -d ~/app ]] || exit 0; rm -rf ~/app/" \
+  "rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" \
+  "sed -i \"s/\(gem .puma.\).*/\1/\" Gemfile" \
+  "sed -i \"s/\(gem .listen.\).*/\1/\" Gemfile" \
+  "sed -i \"/gem .sass-rails./ s/^/#/\" Gemfile" \
+  "bundle config set deployment false" \
+  "bundle config set without test" \
+  "bundle install -r 3 --local" \
+  "( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q \"<title>Ruby on Rails</title>\" && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1"
+do
+  bash -c -n "$cmd" || die "Invalid command syntax: $cmd"
+  lcmd="set -xe; cd ~/app || cd; $cmd || { { set +xe; } &>/dev/null; grep -vE '^#' Gemfile | grep -vE '^$'; gem list | grep '^rails '; exit 1; }"
+  bash -c -n "$lcmd" || die "Invalid command syntax: $lcmd"
+
+  mck -unpriv --shell "$lcmd" || die "Command failed: '$cmd'"
+  sleep 0.1
+done
+
+#  "bundle config set path vendor" \

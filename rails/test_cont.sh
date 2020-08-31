@@ -45,7 +45,8 @@ read -r -d '' BSC << EOS||:
   [[ -z "$gem" ]] || echo "gem '$gem'" >> Gemfile
 
   rm Gemfile.lock
-  bundle install --path vendor/bundle -r 3 $blocal
+  bundle config set deployment false path vendor without 'development:test'
+  bundle install -r 3 $blocal
 
   $dline
 
