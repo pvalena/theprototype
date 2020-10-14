@@ -32,7 +32,7 @@ die () {
 
 warn () {
   echo
-  echo "--> $1: $2!" >&2
+  echo -e "--> $1: $2!" >&2
 }
 
 clean () {
@@ -44,17 +44,27 @@ clean () {
 
 # Note: everything should be commited before every srpm call
 srpm () {
-  E="`fedpkg --release $REL srpm`" || {
-    warn "Failed to reate $1 srpm" "$E"
-    warn 'Trying to remove' 'richdeps'
+  rm -rf result/
+  rm *.src.rpm
+  mar="$mar -r fedora-rubygems-x86_64"
 
-    sed -i 's/^Recommends: /Requires: /' *.spec
-    sed -i '/^Suggests: / s/^/#/' *.spec
+  E="`mck -buildsrpm -v --spec *.spec --sources . 2>&1`" || {
+    warn "Failed to create $1 srpm\n" "$E"
 
-    E="`fedpkg --release $REL srpm`" || {
+    [[ -n "$CON" ]] || {
+      warn 'Trying to remove' 'richdeps'
+
+      sed -i 's/^Recommends: /Requires: /' *.spec
+      sed -i '/^Suggests: / s/^/#/' *.spec
+    }
+    E="`fedpkg --release $REL srpm 2>&1`" || {
       die "Failed to create $1 srpm(2)" "$E"
     }
   }
+
+  mv result/*.src.rpm .
+  ls *.src.rpm &>/dev/null || die "Failed to create $1 srpm(3)"
+
   [[ -n "$CON" ]] || {
     git reset --hard HEAD || die 'Failed to reset git(2)'
   }
@@ -109,12 +119,6 @@ ask () {
   set -x
 }
 
-[[ "$1" == "-j" ]] && {
-  KOJ=
-	shift
-	:
-} || KOJ=y
-
 [[ "$1" == "-f" ]] && {
 	REL="f$2"
 	REM="${REM}-$REL"
@@ -124,15 +128,27 @@ ask () {
   REL='master'
 }
 
+[[ "$1" == "-j" ]] && {
+  KOJ=
+	shift
+	:
+} || KOJ=y
+
 [[ "$1" == "-p" ]] && {
 	PKG="$2"
 	shift 2
 	:
 } || PKG="$(basename "$PWD")"
 
+[[ "$1" == "-r" ]] && {
+  COB=
+	shift
+	:
+} || COB=y
+
 [[ "$1" == "-s" ]] && {
 	SKI="$1"
-	CON="$1"
+	CON="-c"
 	shift
 	:
 } || SKI=
@@ -169,25 +185,25 @@ ask () {
 
 # usability
 [[ -x "$CDF" ]] || {
-  warn "CDF shloud be defined and executable"
+  warn 'Warning' "CDF shloud be defined and executable"
   CDF=cat
 }
-[[ -x "$CRB" ]] || warn "CRB shloud be defined and executable"
-[[ -x "$KJB" ]] || warn "KJB shloud be defined and executable"
-[[ -x "$TST" ]] || warn "KJB shloud be defined and executable"
-[[ -x "$FRK" ]] || warn "FRK shloud be defined and executable"
+[[ -x "$CRB" ]] || warn 'Warning' "CRB shloud be defined and executable"
+[[ -x "$KJB" ]] || warn 'Warning' "KJB shloud be defined and executable"
+[[ -x "$TST" ]] || warn 'Warning' "KJB shloud be defined and executable"
+[[ -x "$FRK" ]] || warn 'Warning' "FRK shloud be defined and executable"
 #[[ -x "$GET" ]] || die "GET needs to be defined and executable"
 
 # kinit
 [[ -z "$KOJ" ]] || {
   kl="$ME@FEDORAPROJECT\.ORG"
   ( klist -a | grep -q "${kl}$" ) || {
-    pgrep -x krenew || krenew -i -K 60 -L -b
+    pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
     kinit "$kl" -l 30d
   }
 }
 
-clean
+[[ -n "$CON" ]] || clean
 grep -q "^$PRE" <<< "$PKG" || die "Couldn't autodetect package name: '$PKG'"
 
 # set remote
@@ -196,7 +212,7 @@ git fetch "$ME" || {
   bash -c "$FRK '$PKG'"
   git remote -v | grep -q "^$ME" \
     || git remote add "$ME" "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/${PKG}.git"
-  git fetch "$ME" || warn "Failed to fetch '$ME'"
+  git fetch "$ME" || warn "Failed to fetch" "$ME"
 }
 
 # status
@@ -216,9 +232,9 @@ git fetch "$ME" || {
     git stash || die 'Failed to stash git'
 
     git checkout "$REM" || {
-      git checkout -b "$REM" || warn "Failed to switch to branch '$REM'"
+      git checkout -b "$REM" || warn "Failed to switch to branch" "$REM"
     }
-    git push -u "$ME/$REM" || warn "Could not push to '$ME/$REM'"
+    git push -u "$ME/$REM" || warn "Could not push to" "$ME/$REM"
 
     git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
@@ -233,8 +249,9 @@ nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
 
 nam="`cut -d'-' -f2- <<< "$nam"`"
 
-[[ -n "$SKI" ]] || {
+[[ -n "$CON" ]] || {
   # old srpm
+  fedpkg --release $REL sources
   srpm old
   sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
   rm *.src.rpm||:
@@ -265,7 +282,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
-[[ -n "$SKI" ]] || {
+[[ -n "$CON" ]] || {
   [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
 }
 
@@ -281,7 +298,7 @@ B="$($BUG "$PKG")"
 M="Update to $nam ${ver}."
 gcom="git|cd|tar"
 
-[[ -n "$SKI" ]] || {
+[[ -n "$CON" ]] || {
   c="rpmdev-bumpspec -c '$M$R'"
 
   bash -c "$c -n '$ver' '$X'" || {
@@ -339,7 +356,7 @@ git show | $CDF
 echo
 [[ -z "$SIL" ]] || git status -uno
 
-git push -u "$ME" "$REM" || warn "Could not push to '$ME/$REM'"
+git push -u "$ME" "$REM" || warn "Could not push to" "$ME/$REM"
 
 # build
 [[ -z "$KOJ" ]] || {
@@ -348,20 +365,25 @@ git push -u "$ME" "$REM" || warn "Could not push to '$ME/$REM'"
   }
 }
 
-ask -s 'Run copr build' && {
-  bash -c "set -x; $CRB -c $COP $SIL"
+[[ -z "$COB" ]] || {
+  ask -s 'Run copr build' && {
+    bash -c "set -x; $CRB -c $COP $SIL"
 
-  l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
-  [[ -r "$l" ]] || die "COPR log not found"
+    l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
+    [[ -r "$l" ]] || die "COPR log not found"
 
-  B="$(grep '^Created builds: ' "$l" | sort -u)"
-  [[ -z "$B" ]] && head -20 "$l"
+    B="$(grep '^Created builds: ' "$l" | sort -u)"
+    [[ -z "$B" ]] && head -20 "$l"
 
-  # Build has failed but it might have been just EPEL
-  grep -B 15 '^Executing(%clean):' "$l" | grep -q '^+ exit 0$' \
-    || die "Build failed: \n`cat "$l"`"
+    # Build has failed, but it might have been just EPEL one
+    grep -A 10 '^Executing(%clean):' "$l" | grep -q '^Finish: ' \
+      || die "Build failed: \n`cat "$l"`"
 
-  echo "$B"
+    # This seems unreliable
+    #grep -B 30 '^Executing(%clean):' "$l" | grep -q '^+ exit 0$' \
+
+    echo "$B"
+  }
 }
 
 [[ -z "$EXI" ]] || exit 0
