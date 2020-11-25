@@ -15,7 +15,7 @@ my="$(readlink -e "`pwd`")"
 
 [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
 
-for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
+for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel actionmailbox actiontext; do
   G="rubygem-$x"
 
   [[ -d "$G" ]] || {
@@ -37,7 +37,7 @@ for x in railties rails activesupport activestorage activerecord activejob actio
   N="${N^}"
   echo -e "\n>>> $N"
 
-  for f in .bootstrapped .{,scratch-}built result; do
+  for f in .skip .bootstrapped .{,scratch-}built result; do
     rm -rf "$f"
   done
 

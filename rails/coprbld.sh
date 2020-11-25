@@ -1,10 +1,16 @@
 #!/bin/bash
 #
 # coprbld [-n]
-#   -n  nobreak
 #
-# use ./reset.sh prior to this
-# repos need to be prepared (Using gup.sh)
+#   -d        debug mode
+#
+#   -n        nobreak
+#
+#   -w S      Time to wait (passed to coprbld) after an upgrade. (Default: 15)
+#             For availability in COPR repo.
+#
+# You need to remove `.build` files prior to this.
+# Also repos need to be prepared (using upgrade.sh).
 #
 
 set -e
@@ -15,6 +21,12 @@ CRB="$(dirname "`dirname "$(readlink -e "$0")"`")/pkgs/cr-build.sh"
 [[ -x "$CRB" ]]
 set +e
 
+[[ "$1" == '-d' ]] && {
+  set -x
+  shift
+  :
+}
+
 [[ "$1" == '-n' ]] && {
   BREAK=
   shift
@@ -22,10 +34,16 @@ set +e
 } || BREAK=y
 
 [[ "$1" == '-w' ]] && {
-  W="$1"
+  W="$2"
   shift 2
   :
 } || W=15
+
+[[ -n "$1" ]] && {
+  PRE="$1"
+  shift
+  :
+} || CRR='ruby-on-rails'
 
 [[ -n "$1" ]] && {
   echo "Unknown arg: '$1'" >&2
@@ -42,7 +60,7 @@ while read x; do
 
   [[ -r .built ]] && continue
 
-  $CRB ruby-on-rails && {
+  $CRB "$CRR" && {
     touch .built
     git push
     :
@@ -50,7 +68,8 @@ while read x; do
     [[ -n "$BREAK" ]] && break
   }
 
-  sleep "$W"
+  # Do not wait on the last run
+  [[ "$x" == 'activestorage' ]] || sleep "$W"
 
 done <<EOLX
 activesupport
@@ -67,3 +86,5 @@ actiontext
 actioncable
 activestorage
 EOLX
+
+exit 0
