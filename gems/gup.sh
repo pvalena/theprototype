@@ -10,29 +10,25 @@ ORG='origin'
 PRE='rubygem-'
 NL='
 '
-
-# dynamic
+# dependencies
 CDF="`which colordiff`"
 LOC="$(readlink -e "$0")"
 LOC="`dirname "$(dirname "$LOC")"`"
 CRB="${LOC}/pkgs/cr-build.sh"
 KJB="${LOC}/pkgs/kj-build.sh"
 TST="${LOC}/gems/test.sh"
-GET="${LOC}/gems/sources.sh"
+GET="${LOC}/pkgs/sources.sh"
 BUG="${LOC}/pkgs/bug.sh"
 FRK="${LOC}/fedora/fork_package.sh"
 
-
 # helpers
 die () {
-  echo
   warn "Error" "$1"
   exit 1
 }
 
 warn () {
-  echo
-  echo -e "--> $1: $2!" >&2
+  echo -e "\n--> $1: $2!" >&2
 }
 
 clean () {
@@ -76,13 +72,12 @@ ask () {
   [[ "$1" == '-s' ]] && s="$1" && shift
 
   for x in {1..10}; do
-    echo
     [[ -n "$YES" ]] && {
-      echo ">> $@. "
+      echo "> $@. "
       return 0
       :
     } || {
-      read -n1 -p ">> $@? " r
+      read -n1 -p "> $@? " r
 
       grep -qi '^y' <<< "${r}" && {
         clear
@@ -106,13 +101,19 @@ ask () {
   COP="$2"
 	shift 2
 	:
-} || COP=rubygems
+} || COP='rubygems'
 
 [[ "$1" == "-c" ]] && {
   CON="$1"
 	shift
 	:
 } || CON=
+
+[[ "$1" == "-e" ]] && {
+  PRF="--pre"
+	shift
+	:
+} || PRF=
 
 [[ "$1" == "-d" ]] && {
 	shift
@@ -197,9 +198,9 @@ ask () {
 # kinit
 [[ -z "$KOJ" ]] || {
   kl="$ME@FEDORAPROJECT\.ORG"
-  ( klist -a | grep -q "${kl}$" ) || {
+  klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+    kinit "$kl" -l 30d -r 30d -A
     pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
-    kinit "$kl" -l 30d
   }
 }
 
@@ -222,6 +223,7 @@ git fetch "$ME" || {
   git diff | $CDF
   echo
   git status
+  echo
 }
 
 [[ -n "$CON" ]] || {
@@ -234,11 +236,12 @@ git fetch "$ME" || {
     git checkout "$REM" || {
       git checkout -b "$REM" || warn "Failed to switch to branch" "$REM"
     }
-    git push -u "$ME/$REM" || warn "Could not push to" "$ME/$REM"
+    git push -u "$ME" "$REM" || warn "Could not push to" "$ME/$REM"
 
     git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
-  } | bash -c "cat $SIL"
+  } | bash -c "set -x; cat $SIL"
+  echo
 }
 
 # spec
@@ -266,11 +269,12 @@ nam="`cut -d'-' -f2- <<< "$nam"`"
 
   ov2="$(rev <<< "$sn" | cut -d'-' -f2 | rev)"
   [[ "$ov" == "$ov2" ]] || die "Old version inconsistency- should be: '$ov' not '$ov2'"
+  echo
 }
 
 # new
 rm *.gem||:
-gem fetch "$nam" $ver || die "gem fetch failed"
+gem fetch $PRF "$nam" $ver || die "gem fetch $prf failed"
 
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
@@ -283,10 +287,33 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
 [[ -n "$CON" ]] || {
-  [[ "$ver" == "$ov" ]] && die "Version '$ver' is current"
+  [[ "$ver" == "$ov" ]] && {
+    warn "Version is current" "$ver"
+    exit 2
+  }
 }
 
-# Bug search
+[[ -n "$PRF" ]] && {
+  prever=".`rev <<< "$ver" | cut -d'.' -f1 | rev`"
+  ver="`rev <<< "$ver" | cut -d'.' -f2- | rev`"
+
+  grep -qE '^[#%]*%global prerelease' "$X" && {
+    sed -i "s/^[#%]*\(%global prerelease\).*$/\1 $prever/" "$X"
+    :
+  } || {
+    sed -i "/^\s*Name: / i %global prerelease $prever\n" "$X"
+  }
+
+  [[ -z "$ver" || "$prever" == '.' ]] \
+    && die "Version/Preversion could be resolved correctly: '$ver/$prever'"
+  :
+} || {
+  prever=
+  sed -i "s/^[#%]*\(%global prerelease\).*$/#%\1 /" "$X"
+}
+echo
+
+# Bug search + commit
 B="$($BUG "$PKG")"
 [[ -n "$B" ]] && {
   B="Resolves: rhbz#$B"
@@ -294,16 +321,17 @@ B="$($BUG "$PKG")"
   :
 } || B=
 
-# bump
-M="Update to $nam ${ver}."
-gcom="git|cd|tar"
+M="Update to $nam ${ver}${prever}."
+gcom="git|cd|tar|wget|curl"
 
 [[ -n "$CON" ]] || {
   c="rpmdev-bumpspec -c '$M$R'"
 
-  bash -c "$c -n '$ver' '$X'" || {
-    sed -i "s/^\(Version:\).*$/\1 $ver/" "$X"
-    sed -i "s/^\(Release:\)\s*[0-9]*\(.*\)$/\1 0\2/" "$X"
+  bash -c "set -x; $c -n '$ver' '$X'" || {
+    warn "Failed to use rpmdev-bumpspec bump version, using fallback."
+
+    sed -i "s/^\s*\(Version:\).*$/\1 $ver/" "$X"
+    sed -i "s/^\s*\(Release:\)\s*[0-9]*\(.*\)$/\1 0\2/" "$X"
 
     bash -c "$c '$X'" \
       || die "Failed to bump spec with message '$M'"
@@ -312,21 +340,27 @@ gcom="git|cd|tar"
   # additional sources
   # newer version
   grep -B 20 '^Source' "$X" | grep '^#' | grep -E "^#\s*(${gcom})\s*" \
-     | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver/g\" \"$X\""
+     | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/$ov/$ver$prever/g\" \"$X\""
+  echo
 }
 
+
 # run the command get sources and write sources file
-bash -c "$GET '$X' '$gcom' '$YES'" || die 'Failed to execute $GET'
+[[ -n "$SKI" ]] || {
+  bash -c "$GET '$X' '$gcom' '$YES'" || die 'Failed to execute $GET'
+  echo
+}
 
 # commit
 M="${M}$NL$NL${B}"
 [[ -n "$SKI" ]] || {
   git commit -am "${M}" || die "Failed to commit with message '$M'"
+  echo
 }
 
 # new srpm
 srpm new
-
+echo
 # Not needed: Currently resetting
 ## save diff from srpm creation
 #P=''
@@ -344,12 +378,15 @@ srpm new
 #}
 
 # compare
-echo
-gem compare -bk "$nam" "$ov" "$ver"
+[[ -n "$SKI" ]] || {
+  gem compare -bk "$nam" "$ov" "$ver$prever"
+  echo
+}
 
 [[ -n "$SKI" ]] || {
   ask 'Continue with commit ammend'
   git commit --amend -am "$M" || die "Failed to amend"
+  echo
 }
 
 git show | $CDF
@@ -358,16 +395,26 @@ echo
 
 git push -u "$ME" "$REM" || warn "Could not push to" "$ME/$REM"
 
+gitd --stat "${ME}/${REM}" \
+    | grep -q '^ 1 file changed, 1 insertion(+), 1 deletion(-)$' \
+  && gitd "${ME}/${REM}" \
+    | grep -A 1 '^ %changelog' | tail -n +2 \
+    | grep -q ' Pavel Valena ' \
+  && git push -f -u "$ME" "$REM"
+
+echo
+
 # build
 [[ -z "$KOJ" ]] || {
   ask -s 'Run koji build' && {
-    bash -c "$KJB $SIL"
+    bash -c "$KJB"
+    echo
   }
 }
 
 [[ -z "$COB" ]] || {
   ask -s 'Run copr build' && {
-    bash -c "set -x; $CRB -c $COP $SIL"
+    bash -c "set -x; $CRB -c -t 30m $COP"
 
     l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
     [[ -r "$l" ]] || die "COPR log not found"
@@ -382,6 +429,7 @@ git push -u "$ME" "$REM" || warn "Could not push to" "$ME/$REM"
     # This seems unreliable
     #grep -B 30 '^Executing(%clean):' "$l" | grep -q '^+ exit 0$' \
 
+    echo
     echo "$B"
   }
 }
@@ -391,3 +439,5 @@ git push -u "$ME" "$REM" || warn "Could not push to" "$ME/$REM"
 ask -s 'Run checks' && {
   bash -c "$TST -c $SIL"
 }
+
+exit 0

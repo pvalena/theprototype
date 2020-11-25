@@ -1,19 +1,38 @@
 #!/bin/bash
 
-# >&2
+### REPORTING START ###
 {
+
 set -e
 bash -n "$0"
 
+l="###############################"
 section () {
-  l="##############################"
-  echo "$l" "$@" "$l"
+  { echo; } 2>/dev/null
+  : "${l} $@ ${l}"
+}
+
+fail () {
+  local mu=
+  local re=
+  echo -n "**failed"
+
+  [[ -z "$1" ]] || {
+    [[ "`wc -l <<< "$1"`" == "1" ]] \
+      && re="${1}" \
+      || { re="see below"; mu=y; }
+
+    echo -n " (${1})"
+  }
+
+  echo "**"
+  [[ -n "$mu" ]] && echo -e "\n${1}"
 }
 
 MYD="`readlink -e "$(dirname "$0")/.."`"
 [[ -d "$MYD" ]]
 
-rel='f34'
+rel='34'
 
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
@@ -21,7 +40,7 @@ msr="${v}-n --isolation=nspawn --result=./result"
 mar='--bootstrap-chroot'
 mck () {
   a=""
-  while [[ -n "$1" ]]; do a="$a '$1'" ; shift ; done
+  while [[ -n "$1" ]]; do a="$a '$1'"; shift; done
 
   bash -c "set -x ; mock $msr $mar $a"
   return $?
@@ -31,7 +50,7 @@ me="pvalena"
 mc="rubygems"
 gp='rubygem-'
 
-COPR_URL="https://copr-be.cloud.fedoraproject.org/results/$me/"
+COPR_URL="https://download.copr.fedorainfracloud.org/results/$me/"
 
 [[ "$1" == '-b' ]] && {
   CR="$2"
@@ -94,9 +113,9 @@ bl='result/build.log'
 
 [[ -n "$KJ" ]] || {
   kl="$me@FEDORAPROJECT\.ORG"
-  ( klist -a | grep -q "${kl}$" ) || {
+  klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+    kinit "$kl" -l 30d -r 30d -A
     pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
-    kinit "$kl" -l 30d
   }
 }
 
@@ -106,8 +125,7 @@ p="$1"
 [[ -n "$p" ]] && {
   grep -q "^$gp" <<< "$p" || p="$gp$p"
   [[ -d "$p" ]] || fedpkg --user "$me" clone -a "$p"
-  [[ -d "$p" ]]
-  cd "$p"
+  cd "$p" || exit 2
   :
 } || {
   p="`basename "$PWD"`"
@@ -174,10 +192,14 @@ grep "^$gp" <<< "$p" &>/dev/null
   rm *.src.rpm ||:
   rm -rf result/ ||:
   #fedpkg --release master sources
-  fedpkg --release $rel srpm
+  fedpkg --release f$rel srpm
 
   section 'BUILD'
-  for c in $CINIT *.src.rpm; do
+  for c in $CINIT; do
+    mck -q $c
+    sleep 1
+  done
+  for c in *.src.rpm; do
     mck $c
     sleep 1
   done
@@ -187,34 +209,36 @@ section 'TESTS'
 [[ -r "$bl" ]] || {
   [[ -r "${bl}.xz" ]] && unxz "${bl}.xz"
 }
-TP="$TP\n  - Tests:"
-grep -q '^Executing(%check)'                            "$bl" && {
-! grep ' failures' "$bl" || grep -E '(^|\s+)0 failures' "$bl" && {
-! grep ' errors'   "$bl" || grep -E '(^|\s+)0 errors'   "$bl" && {
+[[ -r "$bl" ]] || abort "Could not find build log: ${bl}"
 
-! grep -qE '(^|\s+)0 (assertions|examples)' "$bl" && \
-  grep -qE ' (assertions|examples)' "$bl" \
-  \
-  && TP="$TP ok" \
-  || TP="$TP failed (no assertions)"
-:
-} || TP="$TP failed (errors occured)"
-:
-} || TP="$TP failed (failures occured)"
-:
-} || TP="$TP failed (%check is missing)"
+TP="$TP\n  - Tests:"
+grep -q '^Executing(%check)' "$bl" && {
+  z="$(grep -E ' (assertions|examples)' "$bl")"
+
+  [[ -n "$z" ]] \
+    && ! grep -qE '(^|\s+)0 (assertions|examples)' <<< "$z" \
+    && {
+      ! grep ' failures' <<< "$z" || grep -E '(^|\s+)0 failures' <<< "$z" && {
+      ! grep ' errors'   <<< "$z" || grep -E '(^|\s+)0 errors'   <<< "$z" \
+        && TP="$TP ok" \
+        || TP="$TP `fail "errors occured"`"
+      :
+      } || TP="$TP `fail "failures occured"`"
+      :
+    } || TP="$TP `fail "no assertions"`"
+  :
+} || TP="$TP `fail "%check is missing"`"
 
 section 'INSTALL'
 E=''
 mar=''
-for c in "{x86_64,noarch}" {x86_64,noarch} ; do
-  x="$(bash -c "ls result/*.${c}.rpm")" || continue
-
-  mck -i $x && {
-    [[ "$c" == "{x86_64,noarch}" ]] && break
-    :
-  } || E="$c installation failed"
-done
+x="$(find result -name "*.fc${rel}.noarch.rpm" -o -name "*.fc${rel}.x86_64.rpm")"
+[[ -n "$x" ]] && {
+  mck -i $x || E="Installation `fail "$x"`"
+  :
+} || {
+  E="Installation `fail "no packages to install"`"
+}
 
 section 'SYNTAX'
 TP="$TP\n  - Syntax check:"
@@ -224,14 +248,14 @@ mck --unpriv --shell '
     | xargs -i bash -c \
       "{ ruby -c \"{}\" 2>&1 || exit 255 ; } | grep -v \"^Syntax OK$\""
   :
-' && TP="$TP ok" || TP="$TP failed"
+' && TP="$TP ok" || TP="$TP `fail`"
 
 
 section 'DEPENDENCIES'
-TP="$TP\n  - Dependent packages:"
+TP="$TP\n  - Reverse dependencies:"
 DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
   && TP="$TP ok" \
-  || TP="$TP failed ($DEP)"
+  || TP="$TP `fail "$DEP"`"
 
 
 [[ -n "$E" ]] || {
@@ -245,7 +269,7 @@ DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
       && TP="$TP ok" \
       || {
         mck --unpriv --chroot "$c" || {
-          TP="$TP failed ($c)"
+          TP="$TP `fail "$c"`"
           break
         }
       }
@@ -263,7 +287,7 @@ RPML="$(
     | sort -u
   )" \
   && TP="$TP ok" \
-  || TP="$TP failed\n\n$RPML"
+  || TP="$TP `fail "$RPML"`"
 
 
 { set +x ; } &>/dev/null
@@ -292,6 +316,7 @@ R=0
 echo -e "\n=> $E\n_ _ _ _\n\nrpmlint: $RPML\n"
 
 } >&2
+### REPORTING END ###
 
 cat <<EOLX | tee -a /dev/stderr
 

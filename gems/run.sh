@@ -3,6 +3,9 @@
 set -e
 bash -n "$0"
 
+# for koji scratch-build
+kl="pvalena@FEDORAPROJECT\.ORG"
+
 myd="`dirname "$(readlink -e "$0")"`"
 gup="${myd}/gup.sh"
 tst="${myd}/test.sh"
@@ -16,8 +19,11 @@ abort () {
 }
 
 gistf () {
-  [[ -n "`which gist`" && -n "$GST" ]] \
-    && gist -sf "$1" < "$1"
+  [[ -n "$GST" ]] && {
+    sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" "$1" \
+      | gist -sf "$1"
+    :
+  } || readlink -e "$1"
 }
 
 addlog () {
@@ -27,21 +33,36 @@ addlog () {
   echo -e "${1}: `gistf "$2"`" | tee -a "$o"
 }
 
-[[ -n "$1" && "${1:0:1}" != '-' ]] && {
-  x="$1"
-  AUT=
+klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+  kinit "$kl" -l 30d -r 30d -A
+  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
+}
+
+ARG=
+
+[[ "$1" == '-b' ]] && {
+  BLD="$2"
+  shift 2
+  :
+} || BLD=
+
+[[ "$1" == '-c' ]] && {
+  CON="$1"
   shift
   :
-} || {
-  x="$(basename "$PWD" | grep '^rubygem\-' | cut -d'-' -f2-)"
-  AUT=y
-}
+} || CON=
+
+[[ "$1" == '-f' ]] && {
+  FCE="$1"
+  shift
+  :
+} || FCE=
 
 [[ "$1" == '-n' ]] && {
   GST=
   shift
   :
-} || GST=y
+} || GST="`which gist`"
 
 [[ "$1" == '-u' ]] && {
   UPD=y
@@ -49,24 +70,31 @@ addlog () {
   :
 } || UPD=
 
+[[ -z "$1" || "$1" == '--' ]] && {
+  x="$(basename "$PWD" | grep '^rubygem\-' | cut -d'-' -f2-)"
+  cd ..
+  :
+} || {
+  [[ "${1:0:1}" == '-' ]] && abort "Unkown arg: '$1'"
+  x="$1"
+  shift
+}
+
 [[ "$1" == '--' ]] && {
   shift
   :
 }
 
-[[ -n "$AUT" ]] && cd ..
-
 l='.log'
 s=".spec"
+p="rubygem-${x}"
 
-y="cpr/${x}-"
+y="cpr/${p}_"
 u="${y}update${l}"
-o="${y}summary.md"
 e="${y}test${l}"
+o="${y}summary.md"
 d="${y}gem2rpm.diff"
 
-p="rubygem-${x}"
-f="${p}/.update"
 g="${p}/.generated${s}"
 s="${p}/${p}${s}"
 
@@ -86,31 +114,38 @@ set -o pipefail
 rm -f "$o"
 rm -f "$e"
 rm -f "$d"
+rm -f "$u"
 
 [[ -n "$UPD" ]] && {
-  rm -f "$u"
-
-  [[ -r "$f" || -n "$($gpr "$p")" ]] && {
-    echo "Update already pending"
-    exit 0
+  pr="$($gpr "$p")"
+  [[ -n "$pr" ]] && {
+    echo -e ">>> Update already pending\nPull request: ${pr}\n"
+    [[ -z "$GST" || -n "$FCE" ]] || exit 0
   }
 
-  for a in "$@"; do
-    [[ "$a" == "-b" || "$a" == '-c' ]] && abort "You cannot use '$a' arg with '-u'."
-  done
-
   echo ">> Update"
-  bash -c "echo; set -e; cd '$p'; $gup -j -u -x -y" 2>&1 | cat | tee "$u"
 
-  [[ $? -eq 0 ]] || abort "Update failed"
+  [[ -n "$BLD" ]] && {
+    [[ -n "$CON" ]] || abort "NYI: You cannot specify '-b' without '-c'."
+    :
+  } || {
+    [[ -n "$CON" ]] && CON='-s' || CON=''
 
-  B="$(grep '^Created builds: ' "$u" | cut -d' ' -f3 | grep -E '^[0-9]+$' | head -1)"
-  [[ -n "$B" ]] || abort 'COPR Build missing'
+    bash -c "echo; set -e; cd '$p'; $gup -j ${CON} -u -x -y" 2>&1 | cat | tee -a "$u"
+    [[ $? -eq 2 ]] && exit 2
+    [[ $? -eq 0 ]] || abort "Update failed"
 
-  B="-b $B -c"
+    BLD="$(grep '^Created builds: ' "$u" | cut -d' ' -f3 | grep -E '^[0-9]+$' | head -1)"
+
+    [[ -n "$BLD" ]] || abort 'COPR Build missing'
+  }
+
+  ARG="${ARG} -b $BLD -c"
 
   t="$(bash -c "set -e; cd '$p'; git log -1 2>/dev/null | tail -n +5 | sed -e 's/^\s*//'")"
-  grep -q "^Update to " <<< "$t" || abort "Malformed git log entry: $t"
+  grep -q "^Update to " <<< "$t" || {
+    [[ -z "$FCE" ]] && abort "Malformed git log entry: $t"
+  }
 
   tt="$(bash -c "set -e; cd '$p'; git status -uno 2>&1")"
   for a in \
@@ -126,11 +161,16 @@ rm -f "$d"
   tr="$(tail -n +2 <<< "$t")"
   [[ -n "$tr" ]] && tr="${tr}${nl}${sep}${nl}"
 
-cat > "$o" <<-EOF
-${tr}__Note: this update was created and tested automatically, but it has not yet been checked manually. Please check the logs, and merge it if you find it ok. It will be built automatically in an hour.__
+  [[ -n "$CON" ]] || {
+cat >> "$o" <<-EOF
+${tr}__Note: this update was created and tested automatically, but it was not checked by anyone. Please check the logs, commits, and comment "LGTM" it if you find it ok. Afterwards it will be merged and built automatically as well (and checked by me).__
 EOF
+  }
   :
-} || B=
+} || {
+  [[ -n "$BLD" ]] && ARG="${ARG} -b $BLD"
+  [[ -n "$CON" ]] && ARG="${ARG} -c"
+}
 
 set +e
 
@@ -140,40 +180,40 @@ bash -c "set -e; cd '$p'; gem2rpm --fetch '$x' 2>/dev/null" > "$g" && {
   rm -f "$g"
 }
 
-# This is intentional to redirect stderr to "$e" file and stdout to "$o"
-# TODO: properly parse and forward args; we're gessing '-u' is the last
-[[ -z "$UPD" ]] && {
-  $tst $B "$@" -u "$x" 2>&1 >>"$o" | tee "$e"
-  :
-} || {
-  echo ">> Tests"
-  $tst $B "$@" -u "$x" 2>&1 >>"$o" > "$e"
-}
+# This is intentional to redirect stderr to "$e" file (and print to terminal), and stdout to "$o"
+# TODO: properly parse and forward args (we rely on '-u' is the last)
+echo ">> Tests"
+$tst $ARG "$@" -u "$x" 2>&1 >> "$o" | tee -a "$e"
+R=$?
 
-[[ $? -eq 0 ]] || exit 1
-touch "$f"
+[[ $R -eq 0 ]] || abort "Testing failed!"
+[[ "`wc -l < "$o"`" == "0" ]] && abort "Summary ('$o') is empty!"
+[[ "`wc -l < "$e"`" == "0" ]] && abort "Test log ('$e') is empty!"
 
 echo -e "\n${sep}\n" | tee -a "$o"
 
 # Let's add update and stderr log into report
-[[ -n "$UPD" ]] && addlog 'Update log' "$u"
+addlog 'Update log' "$u"
 addlog 'Test log' "$e"
 addlog 'gem2rpm diff' "$d"
 
-[[ -z "$UPD" ]] || {
-  $cpr "$p" "`head -1 <<< "$t"`" "`cat "$o"`"
-  exit
+echo -e "${sep}\n"
+
+[[ -n "$UPD" && -n "$GST" ]] && {
+  Q="$($cpr "$p" "`head -1 <<< "$t"`" "`cat "$o"`")" \
+    || echo "Failed to create PR:" "$Q" 1>&2
+
+  sleep 1
 }
 
-echo "${sep}"
 pr="$($gpr "$p")"
 
 [[ -z "$pr" ]] && {
-  echo "https://src.fedoraproject.org/fork/pvalena/rpms/${p}/diff/master..rebase"
-  gistf "$o"
+  echo "You can create PR manualy: https://src.fedoraproject.org/fork/pvalena/rpms/${p}/diff/master..rebase"
+  # gistf "$o"
   :
 } || {
-  echo "PR already exists: ${pr}"
+  echo "Pull request: ${pr}"
 }
 
 exit 0

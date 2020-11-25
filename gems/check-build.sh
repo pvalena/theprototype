@@ -1,13 +1,21 @@
 #!/bin/zsh
 
+# -l      run in a loop - must be always last
+
 set -e
 zsh -n "$0"
+
+abort () {
+  echo "Error:" "$@" >&2
+  exit 1
+}
 
 [[ "$1" == "-d" ]] && {
   set -x
   DEBUG="$1"
   shift
-}
+  :
+} || DEBUG=
 
 [[ "$1" == "-i" ]] && {
   I="$2"
@@ -16,12 +24,25 @@ zsh -n "$0"
 } || I=1
 
 [[ "$1" == "-l" ]] && {
-  me="$(readlink -e "$0")"
-  exec noploop -v -w 1h \
-    "${me} $DEBUG -i $I" \
+  LOOP=y
+  shift
+  :
+} || LOOP=
+
+
+# More information on skipped packages
+[[ "$1" == "-v" ]] && {
+  INFO="$1"
+  shift
 }
 
-[[ -z "$1" ]] || exit 2
+[[ -z "$1" ]] || abort "Unknown arg: '$1'"
+
+[[ -n "$LOOP" ]] && {
+  me="$(readlink -e "$0")"
+  exec noploop -v -w 1h \
+    "${me} $DEBUG -i $I $INFO" \
+}
 
 x=pvalena
 d="redhat.com"
@@ -40,6 +61,9 @@ fail="{ pwd; git status -uno; exit 255; }"
 silt="{ set +e${silt}; } &>/dev/null"
 verb="set -xe"
 
+klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' \
+  || abort 'KRB missing!'
+
 gems="$($lst -a -f -k f34 "rubygem-")"
 
 eval $silt
@@ -50,14 +74,15 @@ read -r -d '' MAIN << EOM
 
   next () {
     echo -e "\n>>> {}"
-    echo "> Skipping:" "\$@" >&2
+    echo ">> Skipping:" "\$@" >&2
     exit 1
   }
 
   cd '{}'
-  [[ -r .skip ]] && next 'Explicitly (.skip file)'
+  [[ -r .skip ]] && exit 0
 
   git fetch origin &>/dev/null || $fail
+  ls *.spec &>/dev/null || $fail
 
   $gsgr '^Changes not staged for commit' && next 'Unstaged changes'
   $gsgr '^Your branch is ahead' && next 'Branch is ahead'
@@ -87,22 +112,24 @@ read -r -d '' MAIN << EOM
     exit 0
   }
 
-  echo -e "\n>>> {}"
-  echo "> Expected NVR like: \${exp}"
-  echo -n '> Current NVR: '
-  grep -E '^{}-[0-9]' <<< "$gems" || $fail
-
   # changelog email
   e="\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f3 | rev)"
 
   # commit email
   a="\$(git log -1 origin/master | head -2 | tail -n 1 | rev | cut -d' ' -f1 | rev)"
-  $verb
 
-  [[ "\$e" == "<${x}@${d}>" ]]
-  [[ "\$e" == "\$a" ]]
+  [[ "\$e" == "<${x}@${d}>" && "\$e" == "\$a" ]] || {
+    [[ -n "$INFO" ]] && {
+      next "Email mismatch: '\$e', '\$a'"
+    }
+    exit 0
+  }
 
-  $silt
+  echo -e "\n>>> {}"
+  echo "> Expected NVR like: \${exp}"
+  echo -n '> Current NVR: '
+  grep -E '^{}-[0-9]' <<< "$gems" || $fail
+
   # commit hash
   c="\$(git log -1 origin/master | head -1 | cut -d' ' -f2)"
 
@@ -133,18 +160,19 @@ read -r -d '' MAIN << EOM
       -name '*.tar.gz' -o \
       -name '*.tar.xz' -o \
       -name '*.tgz' -o \
-      -name '*.txz' \
-    | xargs -rI'[]' echo cp -nv "[]" .
+      -name '*.txz' -o \
+      -name '*.gem' \
+    | xargs -rI'[]' cp -v "[]" .
 
   $bld -b master -r -s || exit 255
 
-  echo -e "\n> Update suceeded"
-  rm -f ".update"
-  rm -f "../../packages/{}/.update"
+  echo -e "\n>> Update suceeded"
 EOM
 
-bash -c -n "$MAIN" || exit 3
+bash -c -n "$MAIN" || abort "Syntax check failed!"
 
 ls -d rubygem-*/*.spec | cut -d'/' -f1 | sort -uR \
   | xargs -i bash -c "$MAIN" 2>&1 \
   | grep -v '^+ git status -uno$'
+
+exit 0
