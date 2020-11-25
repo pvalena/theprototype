@@ -12,7 +12,7 @@ abort () {
   exit 1
 }
 
-[[ -n "$1" ]] || abort 'Provide repo at least.'
+[[ -n "$1" ]] || exec "$0" "`basename "$PWD"`"
 
 while [[ -n "$1" ]]; do
   repo="$1"

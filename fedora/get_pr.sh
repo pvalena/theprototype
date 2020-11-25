@@ -15,9 +15,11 @@ abort () {
   shift
 } ||:
 
-[[ -n "$1" ]] || abort 'You need to provide repo.'
-REPO="$1"
-shift
+[[ -n "$1" ]] && {
+  REPO="$1"
+  shift
+  :
+} || REPO="$(basename "`pwd`")"
 
 [[ -n "$1" ]] && {
   USERNAME="$2"
@@ -27,5 +29,10 @@ shift
 
 [[ -n "$DEBUG" ]] && set -x && v='-v' || v=
 
-curl -s $v "${SRC_FPO_RPMS}/$REPO/pull-requests?author=$USERNAME" \
-  | jq -r '.requests[].title'
+O="$(curl -s $v "${SRC_FPO_RPMS}/$REPO/pull-requests?author=$USERNAME")"
+
+echo "$O" | jq -r '.requests[].title' 2>/dev/null
+
+I="$(echo "$O" | jq -r '.requests[].id' 2>/dev/null)"
+[[ -n "$I" ]] \
+  && echo "https://src.fedoraproject.org/rpms/$REPO/pull-request/$I"

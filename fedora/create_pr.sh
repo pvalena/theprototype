@@ -32,20 +32,20 @@ COMMENT="$1"
 shift
 
 [[ -n "$1" ]] && {
-  USERNAME="$2"
-  shift 2
+  USERNAME="$1"
+  shift
   :
 } || USERNAME=pvalena
 
 [[ -n "$1" ]] && {
-  BRANCH_FROM="$2"
-  shift 2
+  BRANCH_FROM="$1"
+  shift
   :
 } || BRANCH_FROM=rebase
 
 [[ -n "$1" ]] && {
-  BRANCH_TO="$2"
-  shift 2
+  BRANCH_TO="$1"
+  shift
   :
 } || BRANCH_TO=master
 
