@@ -6,7 +6,7 @@
 while [[ "$1" ]]; do
   [[ -r "$1" ]] || { echo "File '$1' is not readable" >&2 ; exit 1 ; }
 
-  tr -s '\t' ' ' < "$1" | grep '^DEBUG util.py:' | sed -e 's/ is already installed, skipping.$//g' \
+  tr -s '\t' ' ' < "$1" | tee -a /dev/stderr | grep '^DEBUG util.py:' | sed -e 's/ is already installed, skipping.$//g' \
     | grep -E '\.(x86_64|noarch|i686)$' | rev | cut -d' ' -f1 | rev | grep -v '^/' | sort -u
 
   #grep ': Installed packages:' -A $H | grep -E '\.(x86_64|noarch|i686)$'
