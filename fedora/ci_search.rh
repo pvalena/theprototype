@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+bash -n "$0"
+
+JENKINS_FPO_CI_TMT='https://osci-jenkins-1.ci.fedoraproject.org/job/fedora-ci/job/dist-git-pipeline/job/tmt'
+
+abort () {
+  echo "Error:" "$@" >&2
+  exit 1
+}
+
+[[ "$1" == '-d' ]] && {
+  DEBUG="$1"
+  shift
+} ||:
+
+[[ -n "$1" ]] && {
+  REPO="$1"
+  shift
+  :
+} || REPO="$(basename "`pwd`")"
+
+[[ -n "$1" ]] && {
+  USERNAME="$2"
+  shift 2
+  :
+} || USERNAME=pvalena
+
+[[ -n "$DEBUG" ]] && set -x && v='-v' || v=
+
+TERM="$1"
+
+curl -s "${JENKINS_FPO_CI_TMT}/buildHistory/ajax?search=$TERM" \
+  -H 'Accept: text/javascript, text/html, application/xml, text/xml, */*' \
+  -H 'Accept-Language: en-US,en;q=0.5' --compressed \
+  -H 'Referer: https://osci-jenkins-1.ci.fedoraproject.org/job/fedora-ci/job/dist-git-pipeline/job/tmt/changes' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'X-Prototype-Version: 1.7' \
+  -H 'Content-type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -H 'Jenkins-Crumb: f4fd9b43e3e80a7863af29a5581c86036743a24a78e14ae7a37cfb045ed09db7' \
+  -H 'Origin: https://osci-jenkins-1.ci.fedoraproject.org' \
+  -H 'DNT: 1' -H 'Connection: keep-alive' \
+  -H 'Cookie: JSESSIONID.5bfea738=node09dvj7ht401loo97c46rn00og225490.node0; JSESSIONID.cd517f7b=node01c0eo37836zr8122ee47nrcx4011014.node0' \
+  -H 'TE: Trailers' --data-raw ''
