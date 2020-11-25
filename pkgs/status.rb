@@ -64,15 +64,15 @@ def main (i = false, rmfile = false)
       end
 
       stat = nil unless S.include? stat
-     
+
       if stat.nil? || stat.empty?
         q = %x[ grep '^Executing(%clean)' "#{logf}" ]
-        stat = 'succeeded' unless q.nil? || q.empty? 
+        stat = 'succeeded' unless q.nil? || q.empty?
       end
-  
-      stat = 'unknown' if stat.nil? || stat.empty?        
+
+      stat = 'unknown' if stat.nil? || stat.empty?
     end
-    
+
     unless S.include? stat
       puts '[!] Unknown status: ' + stat
       binding.irb
@@ -81,27 +81,25 @@ def main (i = false, rmfile = false)
     name = logf.split(?.)[0..-2].join(?.)
     dat[stat] ||= []
     dat[stat] << name
-    
+
     if i && name =~ /#{i}/
       t = false
 
-      
       qnt = qnt.split(E).reject do
-        |x| 
+        |x|
         unless t
           t = C.detect {
             |c| x.start_with? c
           }
-  
+
           x =~ /^(INFO|WARNING|Start|Finish): /
         else
           true
         end
       end
-      
+
       ps qnt.last(60),
-        '>> '+ logf + ": " + stat + E + 
-        '  '+ U + bnr
+        '>> '+ logf + ": " + stat + E + '  '+ U + bnr
 
       binding.irb
     end
@@ -115,19 +113,19 @@ def main (i = false, rmfile = false)
     dat['succeeded'] ||= []
     $succeeded = dat['succeeded'] = (dat['succeeded'] + $succeeded).uniq
   end
-  
+
   dat.keys.sort.each {
     | k |
     v = dat[k]
-    
+
     next if v.nil? || v.empty?
 
     out += "\n>>> #{k} <<<\n"
-    
+
     l = 0
     v.each_with_index {
       |n, i|
-      
+
       if i % 2 == 0
         l = n.length
         out += "      #{n}"
@@ -136,7 +134,7 @@ def main (i = false, rmfile = false)
         l = 0
       end
     }
-    
+
     out += "\n" unless l == 0
   }
 
@@ -155,18 +153,18 @@ loop {
 
     system "clear"
     print x
-  
+
     r = Timeout.timeout(60) {
        $stdin.gets
     }
   rescue Timeout::Error
     retry
   end
-  
+
   r ||= ''
   r.chomp!
   break if r.nil? || r.empty?
-  
+
   main r
 }
 

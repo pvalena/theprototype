@@ -29,17 +29,22 @@ d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
 [[ "$1" == '-q' ]] && Q=y && shift
 [[ "$1" == '-s' ]] && S=y && shift
-[[ '-' == "${1:0:2}" ]] || {
-  [[ '-' == "${1:0:1}" ]] && exit 2
+[[ "$1" == '-t' || "$1" == '--target' ]] && {
+  G="--target '$2'"
+  shift 2
 }
-[[ -z "$Q" ]] || set -x
 
-r="$1"
-[[ -n "$r" ]] || {
+[[ -n "$1" ]] && {
+  r="$1"
+  shift
+  :
+} || {
   r="`gitb | grep '^*' | cut -d' ' -f2-`"
   grep -q '^rebase-' <<< "$r" && r="`cut -d'-' -f2- <<< "$r"`"
   grep -q '^rebase$' <<< "$r" && r="master"
 }
+
+[[ -z "$1" ]] || die "Unkown arg: $1"
 
 [[ -n "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
@@ -87,12 +92,12 @@ r="$1"
 { set +e ; } &>/dev/null
 
 kl="$me@FEDORAPROJECT\.ORG"
-( klist -a | grep -q "${kl}$" ) || {
-  pgrep -x krenew || krenew -i -K 60 -L -b
-  kinit "$kl"
+klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+  kinit "$kl" -l 30d -r 30d -A
+  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
 }
 
-cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $@"
+cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $G"
 
 [[ -z "$Q" ]] || {
   X="$( bash -c "${cmd} --nowait" 2>&1 )" || abort "Failed:\n$X"
@@ -134,6 +139,8 @@ exit 0
 
 # TODO: adopt one approach
 
+p="$(basename "$PWD")"
+
 O="`copr-cli build $c *.src.rpm 2>&1 | tee /dev/stderr`" && R=0 || R=1
 
 b="`echo "$O" | grep '^Created builds: ' | cut -d' ' -f3`"
@@ -147,7 +154,7 @@ grep -q succeeded <<< "$O" || {
   for l in build root; do
     (
       echo "$O"
-      curl -#Lk "https://copr-be.cloud.fedoraproject.org/results/pvalena/${c}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz" \
+      curl -#Lk "https://download.copr.fedorainfracloud.org/results/pvalena/${c}/${x}/`printf "%08d" $b`-${p}/${l}.log.gz" \
         | zcat
     ) \
     | uniq | $d

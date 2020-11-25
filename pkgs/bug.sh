@@ -17,9 +17,11 @@ BZ_REST="https://bugzilla.redhat.com/rest/"
   :
 } ||:
 
-[[ "$1" ]]
-component="$1"
-shift
+[[ -n "$1" ]] && {
+  component="$1"
+  shift
+  :
+} || component="`basename "$PWD"`"
 
 [[ -n "$1" ]] && {
   product="$1"

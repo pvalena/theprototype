@@ -1,10 +1,11 @@
 #!/bin/bash
 #
-# ./bld.sh [-b BRANCH][-m BRANCH][-r]
+# ./bld.sh [-b BRANCH][-m BRANCH][-r][TARGET]
 #   -b  checkout branch $BRANCH_B
 #   -m  stash & merge $BRANCH_M (defaults to -)
 #   -r  stash & reset to origin/$BRANCH_B (defaults to HEAD; see '-b')
 #   -s  DO NOT run scratch-build
+#   -t  side-tag (target)
 #
 
 set -e
@@ -25,10 +26,18 @@ KJB="`dirname "$(readlink -e "$0")"`/kj-build.sh"
 [[ "$1" == "-r" ]] && { RE='yy' ; shift 1 ; } || RE=
 [[ "$1" == "-s" ]] && { SB='yy' ; shift 1 ; } || SB=
 
+[[ "$1" == '-t' ]] && {
+  TR="--target '$2'"
+  shift 2
+  :
+} || TR=
+
+[[ -z "$1" ]] || die "Unknown arg: $1"
+
 kl="pvalena@FEDORAPROJECT.ORG"
-( klist -a | grep -q "${kl}$" ) || {
-  pgrep -x krenew || krenew -i -K 60 -L -b
-  kinit "$kl" -l 30d
+klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+  kinit "$kl" -l 30d -r 30d -A
+  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
 }
 
 [[ -z "$RE" ]] || {
@@ -40,7 +49,7 @@ kl="pvalena@FEDORAPROJECT.ORG"
 [[ -z "$BR" ]] && BR=HEAD || {
   set -x
     git checkout "$BR" || {
-      fedpkg switch-branch "$BR"
+      #fedpkg switch-branch "$BR"
       git checkout "$BR"
     }
     git branch -u "origin/$BR"
@@ -63,7 +72,8 @@ git fetch
   { set +x ; } &>/dev/null
 }
 
-fedpkg sources || :
+# Bad idea. Removes files if not present on server (before new-sources).
+# fedpkg sources || :
 d="`basename "$PWD"`"
 
 grep -q '^rubygem\-' <<< "$d" \
@@ -73,7 +83,7 @@ grep -q '^rubygem\-' <<< "$d" \
 for y in {1..10}; do
   [[ -z "$SB" ]] && {
     set -x
-      bash -c "set -xe ; echo | $KJB -c" && SB=y
+      bash -c "set -xe ; echo | $KJB -c $TR" && SB=y
       git stash
     { set +x ; } &>/dev/null
     [[ -n "$SB" ]] || continue
@@ -82,7 +92,7 @@ for y in {1..10}; do
     set -x
       fedpkg new-sources `cut -d'(' -f2 < sources | cut -d')' -f1 | cut -d' ' -f2-` \
         && fedpkg push \
-        && fedpkg build --skip-nvr-check \
+        && bash -c "fedpkg build --skip-nvr-check $TR" \
         && exit 0 \
         || : "Build failed!"
     { set +x ; } &>/dev/null
