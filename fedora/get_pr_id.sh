@@ -10,7 +10,6 @@ com="${myd}/get_pr_common.sh"
  . "$com"
 
 yield '
-    echo "$title"
-    echo "https://src.fedoraproject.org/rpms/$REPO/pull-request/$id"
+    echo "$id"
   '
 :
