@@ -72,10 +72,10 @@ while read x; do
   [[ "$x" == 'activestorage' ]] || sleep "$W"
 
 done <<EOLX
+rails
 activesupport
 activejob
 activemodel
-rails
 railties
 actionview
 actionpack
