@@ -208,4 +208,5 @@ ls -d rubygem-*/*.spec | cut -d'/' -f1 | sort -uR \
   | xargs -i bash -c "$MAIN" 2>&1 \
   | grep -v '^+ git status -uno$'
 
+echo
 exit 0

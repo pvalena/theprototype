@@ -44,6 +44,7 @@ srpm () {
     rm -rf result/
     rm *.src.rpm
   } &>/dev/null
+
   mar="$mar -r fedora-rubygems-x86_64"
 
   E="`mck -buildsrpm -v --spec *.spec --sources . 2>&1`" || {
