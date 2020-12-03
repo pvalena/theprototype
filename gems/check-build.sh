@@ -48,11 +48,18 @@ x=pvalena
 d="redhat.com"
 
 f=34
-lst="$(readlink -e ~/lpcsf-new/test/scripts/pkgs/list.sh)"
-bld="$(readlink -e ~/lpcsf-new/test/scripts/pkgs/bld.sh)"
+myd="$(readlink -e "$0")"
+myd="`dirname "$(dirname "$myd")"`"
+lst="${myd}/pkgs/list.sh"
+bld="${myd}/pkgs/bld.sh"
+gpi="${myd}/fedora/get_pr_id.sh"
+gpc="${myd}/fedora/get_pr_comments.sh"
+mpr="${myd}/fedora/merge_pr.sh"
 
 [[ -x "$lst" ]]
 [[ -x "$bld" ]]
+[[ -x "$gpi" ]]
+[[ -x "$gpc" ]]
 
 [[ -z "$DEBUG" ]] && silt=x || silt=''
 
@@ -79,7 +86,6 @@ read -r -d '' MAIN << EOM
   }
 
   cd '{}'
-  [[ -r .skip ]] && exit 0
 
   git fetch origin &>/dev/null || $fail
   ls *.spec &>/dev/null || $fail
@@ -99,6 +105,23 @@ read -r -d '' MAIN << EOM
   #  | grep -q '^Successfully rebased and updated'
   $gsgr "^Your branch is up to date with 'origin/master'" || next 'Outdated branch'
 
+  mer=
+  w='[\s \.,\-\!]*'
+  for i in \$($gpi -g '^Update to '); do
+    [[ -n "\$($gpc -g "^\${w}LGTM\${w}$" -i "\$i")" ]] && {
+      $mpr -i "\$i" || $fail
+
+      sleep 5
+
+      git fetch origin &>/dev/null || $fail
+      git rebase origin/master &>/dev/null || next 'Failed to rebase after merge'
+      $gsgr "^Your branch is up to date with 'origin/master'" || next 'Outdated branch after merge'
+
+      mer="\$i"
+      break
+    }
+  done
+
   $silt
   # version-release
   v="\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev |cut -d' ' -f1 | rev)"
@@ -109,6 +132,7 @@ read -r -d '' MAIN << EOM
 
   [[ -n "\$nvr" ]] && {
     [[ -n "$DEBUG" ]] && echo "> Up-to-date: \${nvr}"
+    [[ -z "\$mer" ]] || $fail
     exit 0
   }
 
@@ -119,16 +143,25 @@ read -r -d '' MAIN << EOM
   a="\$(git log -1 origin/master | head -2 | tail -n 1 | rev | cut -d' ' -f1 | rev)"
 
   [[ "\$e" == "<${x}@${d}>" && "\$e" == "\$a" ]] || {
+    [[ -z "\$mer" ]] || $fail
+
     [[ -n "$INFO" ]] && {
       next "Email mismatch: '\$e', '\$a'"
     }
     exit 0
   }
 
+  [[ -r .skip ]] && next 'Explicit skip'
+
   echo -e "\n>>> {}"
-  echo "> Expected NVR like: \${exp}"
-  echo -n '> Current NVR: '
-  grep -E '^{}-[0-9]' <<< "$gems" || $fail
+  [[ -z "\$mer" ]] && {
+    echo ">> Expected NVR like: \${exp}"
+    echo -n '> Current NVR: '
+    grep -E '^{}-[0-9]' <<< "$gems" || $fail
+    :
+  } || {
+    echo ">> Merged PR: #\$mer"
+  }
 
   # commit hash
   c="\$(git log -1 origin/master | head -1 | cut -d' ' -f2)"
@@ -152,7 +185,7 @@ read -r -d '' MAIN << EOM
   [[ -n "\$e" ]] || $fail
 
   $silt
-  echo -e "\n> Build New Update"
+  echo -e "\n>> Build New Update"
 
   # In case sources are elsewhere
   find "../../packages/{}/" \

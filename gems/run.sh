@@ -119,7 +119,7 @@ rm -f "$u"
 [[ -n "$UPD" ]] && {
   pr="$($gpr "$p")"
   [[ -n "$pr" ]] && {
-    echo -e ">>> Update already pending\nPull request: ${pr}\n"
+    echo -e ">> Update already pending\nPull request: ${pr}\n"
     [[ -z "$GST" || -n "$FCE" ]] || exit 0
   }
 
@@ -131,9 +131,11 @@ rm -f "$u"
   } || {
     [[ -n "$CON" ]] && CON='-s' || CON=''
 
-    bash -c "echo; set -e; cd '$p'; $gup -j ${CON} -u -x -y" 2>&1 | cat | tee -a "$u"
-    [[ $? -eq 2 ]] && exit 2
-    [[ $? -eq 0 ]] || abort "Update failed"
+    bash -c "set -e; cd '$p'; $gup -j ${CON} -u -x -y" 2>&1 | tee -a "$u"
+    R=$?
+
+    [[ $R -eq 2 ]] && exit 2                    #<< Package is up to date
+    [[ $R -eq 0 ]] || abort "Update failed"
 
     BLD="$(grep '^Created builds: ' "$u" | cut -d' ' -f3 | grep -E '^[0-9]+$' | head -1)"
 

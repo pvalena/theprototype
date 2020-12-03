@@ -28,7 +28,7 @@ die () {
 }
 
 warn () {
-  echo -e "\n--> $1: $2!" >&2
+  echo -e "--> $1: $2!" >&2
 }
 
 clean () {
@@ -40,8 +40,10 @@ clean () {
 
 # Note: everything should be commited before every srpm call
 srpm () {
-  rm -rf result/
-  rm *.src.rpm
+  {
+    rm -rf result/
+    rm *.src.rpm
+  } &>/dev/null
   mar="$mar -r fedora-rubygems-x86_64"
 
   E="`mck -buildsrpm -v --spec *.spec --sources . 2>&1`" || {
@@ -58,11 +60,11 @@ srpm () {
     }
   }
 
-  mv result/*.src.rpm .
+  mv -f result/*.src.rpm .
   ls *.src.rpm &>/dev/null || die "Failed to create $1 srpm(3)"
 
   [[ -n "$CON" ]] || {
-    git reset --hard HEAD || die 'Failed to reset git(2)'
+    bash -c "git reset --hard HEAD $SIL" || die 'Failed to reset git(2)'
   }
 }
 
@@ -78,6 +80,7 @@ ask () {
       :
     } || {
       read -n1 -p "> $@? " r
+      echo
 
       grep -qi '^y' <<< "${r}" && {
         clear
@@ -208,16 +211,16 @@ ask () {
 grep -q "^$PRE" <<< "$PKG" || die "Couldn't autodetect package name: '$PKG'"
 
 # set remote
-git fetch "$ORG" || die 'Failed to git fetch $ORG'
-git fetch "$ME" || {
-  bash -c "$FRK '$PKG'"
+bash -c "git fetch '$ORG' $SIL" || die 'Failed to git fetch $ORG'
+bash -c "git fetch '$ME' $SIL" || {
+  bash -c "$FRK '$PKG' $SIL"
   git remote -v | grep -q "^$ME" \
     || git remote add "$ME" "git+ssh://$ME@pkgs.fedoraproject.org/forks/$ME/rpms/${PKG}.git"
-  git fetch "$ME" || warn "Failed to fetch" "$ME"
+  bash -c "git fetch '$ME' $SIL" || warn "Failed to fetch" "$ME"
 }
 
 # status
-[[ -n "$SIL" ]] || {
+[[ -z "$SIL" ]] && {
   git show | $CDF
   echo
   git diff | $CDF
@@ -227,7 +230,7 @@ git fetch "$ME" || {
 }
 
 [[ -n "$CON" ]] || {
-  ask "Stash & reset the repository"
+  [[ -n "$SIL" && -n "$YES" ]] || ask "Stash & reset the repository"
 
   {
     # reset
@@ -240,8 +243,8 @@ git fetch "$ME" || {
 
     git reset --hard "$ORG/$REL" || die 'Failed to reset git'
 
-  } | bash -c "set -x; cat $SIL"
-  echo
+    echo
+  } 2>&1 | eval "cat $SIL"
 }
 
 # spec
@@ -254,10 +257,10 @@ nam="`cut -d'-' -f2- <<< "$nam"`"
 
 [[ -n "$CON" ]] || {
   # old srpm
-  fedpkg --release $REL sources
+  bash -c "fedpkg --release $REL sources $SIL"
   srpm old
   sn="$(basename -s '.src.rpm' "`ls *.src.rpm`")"
-  rm *.src.rpm||:
+  rm *.src.rpm &>/dev/null ||:
 
   nam2="$(rev <<< "$sn" | cut -d'-' -f3- | rev)"
   [[ "$PKG" == "$nam2" ]] \
@@ -269,12 +272,13 @@ nam="`cut -d'-' -f2- <<< "$nam"`"
 
   ov2="$(rev <<< "$sn" | cut -d'-' -f2 | rev)"
   [[ "$ov" == "$ov2" ]] || die "Old version inconsistency- should be: '$ov' not '$ov2'"
-  echo
+
+  [[ -z "$SIL" ]] && echo
 }
 
 # new
-rm *.gem||:
-gem fetch $PRF "$nam" $ver || die "gem fetch $prf failed"
+rm *.gem ||:
+bash -c "gem fetch $PRF '$nam' '$ver' $SIL" || die "gem fetch $prf failed"
 
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
 [[ "$f" && -r "$f.gem" ]] || die "Invalid or missing gem file: '$f'"
@@ -378,12 +382,18 @@ echo
 #}
 
 # compare
-[[ -n "$SKI" ]] || {
+[[ -z "$CON" ]] && {
   gem compare -bk "$nam" "$ov" "$ver$prever"
-  echo
+  :
+} || {
+  gem compare -bk "$nam" \
+    "`git show | grep -E '^\-Version\:\s*' | tr -s '\t' ' ' | cut -d' ' -f2`" _
 }
+echo
 
 [[ -n "$SKI" ]] || {
+  [[ -z "$SIL" ]] && git diff | $CDF
+
   ask 'Continue with commit ammend'
   git commit --amend -am "$M" || die "Failed to amend"
   echo
@@ -414,7 +424,7 @@ echo
 
 [[ -z "$COB" ]] || {
   ask -s 'Run copr build' && {
-    bash -c "set -x; $CRB -c -t 30m $COP"
+    bash -c "set -x; $CRB -c -t 30m $SIL"
 
     l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
     [[ -r "$l" ]] || die "COPR log not found"
@@ -424,7 +434,7 @@ echo
 
     # Build has failed, but it might have been just EPEL one
     grep -A 10 '^Executing(%clean):' "$l" | grep -q '^Finish: ' \
-      || die "Build failed: \n`cat "$l"`"
+      || die "Build failed: \n`tail -n 70 "$l"`"
 
     # This seems unreliable
     #grep -B 30 '^Executing(%clean):' "$l" | grep -q '^+ exit 0$' \
