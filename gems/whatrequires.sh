@@ -33,7 +33,6 @@ C=what$D
 [[ "$1" == '-v' ]] && { VERBO=y ; shift ; } ||:
 [[ "${1:0:1}" != '-' ]] || abort "Invalid arg: $1"
 
-R=0
 for g in "$@"; do
   [[ -z "$QUIET" ]] && echo -e "\n--> $g"
 
@@ -61,7 +60,6 @@ for g in "$@"; do
 
     O="$(grep -v "^$" <<< "$O")"
     [[ -z "$O" ]] && continue
-    R=1
 
     # Debug + Non-debug
     [[ -z "$QUIET" ]] && {
@@ -72,4 +70,3 @@ for g in "$@"; do
     }
   done
 done
-exit "$R"
