@@ -48,7 +48,7 @@ status () {
   { set +x; } &>/dev/null
   ls -d rubygem-*/ \
     | cut -d'/' -f1 \
-    | xargs -i bash -c "echo -ne '\n >'; cd '{}' && pwd && gitl -2 --oneline | cat || exit 255"
+    | xargs -i bash -c "echo -ne '\n> '; cd '{}' && pwd && gitl -2 --oneline | cat || exit 255"
   echo
   set -x
 }
@@ -85,7 +85,7 @@ set +e
   PRE='-e'
   shift
   :
-} || PRE=y
+} || PRE=
 
 [[ "$1" == '-r' ]] && {
   CRR="$2"
@@ -94,7 +94,7 @@ set +e
 } || CRR='ruby-on-rails'
 
 [[ "$1" == '-w' ]] && {
-  W="$1"
+  W="$2"
   shift 2
   :
 } || W=15
@@ -168,13 +168,13 @@ cd "${d}" || abort "Failed to cd: '$d'"
 
 status
 
-$CRB -w "$W" $n
+$CRB $n -w "$W" "$CRR"
 
 $BOT
 
 status
 
-$CRB -n -w "$W" "$CRR"
+$CRB $n -w "$W" "$CRR"
 
 mar="$mar -r fedora-rails-x86_64"
 $TST

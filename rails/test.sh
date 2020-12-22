@@ -78,10 +78,11 @@ usage () {
 
 for cmd in \
   "cd; [[ -d ~/app ]] || exit 0; rm -rf ~/app/" \
-  "rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" \
+  "rails new app --skip-bundle --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" \
   "sed -i \"s/\(gem .puma.\).*/\1/\" Gemfile" \
   "sed -i \"s/\(gem .listen.\).*/\1/\" Gemfile" \
-  "sed -i \"/gem .sass-rails./ s/^/#/\" Gemfile" \
+  "sed -i \"/gem .sass-rails./ s/sass/sassc/\" Gemfile" \
+  "sed -i \"s/\(gem .sassc-rails.\).*/\1/\" Gemfile" \
   "bundle config set deployment false" \
   "bundle config set without test" \
   "bundle install -r 3 --local" \

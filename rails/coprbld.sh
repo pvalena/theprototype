@@ -79,12 +79,12 @@ activemodel
 railties
 actionview
 actionpack
+activestorage
 activerecord
 actionmailer
 actionmailbox
 actiontext
 actioncable
-activestorage
 EOLX
 
 exit 0
