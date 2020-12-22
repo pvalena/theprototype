@@ -14,7 +14,7 @@ gpr="`readlink -e "${myd}/../fedora/get_pr.sh"`"
 hom="`readlink -e "${myd}/../../"`/"
 
 abort () {
-  echo -e "Error:" "$@" 1>&2
+  echo -e "--> Error:" "$@" 1>&2
   exit 1
 }
 
@@ -155,8 +155,12 @@ rm -f "$u"
     "Your branch is up to date with 'pvalena/rebase'." \
     "nothing to commit"
   do
-    grep -q "^$a" <<< "$tt" \
-      || abort "Invaild git status(did not match '$a'):\n$tt"
+    grep -q "^$a" <<< "$tt" || {
+      m="Invaild git status (did not match '$a'):\n$tt"
+      [[ -n "$GST" && -z "$FCE" ]] \
+        && abort "$m" \
+        || echo -e "Warning: $m" >&2
+    }
   done
 
   # Rest of the changelog entry not used for title
@@ -178,7 +182,12 @@ set +e
 
 # gem2rpm diff
 bash -c "set -e; cd '$p'; gem2rpm --fetch '$x' 2>/dev/null" > "$g" && {
-  diff -dbBZrNU 3 "$g" "$s" | tee "$d"
+  diff -dbBZrNU 3 "$g" "$s" \
+    | grep '^ %changelog$' -B 10000 \
+    | tee "$d"
+
+  grep '^ %changelog$' -A 4 < "$d" | grep '^+'
+
   rm -f "$g"
 }
 
