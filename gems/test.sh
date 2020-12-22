@@ -301,6 +301,8 @@ mck --unpriv --shell '
 section 'DEPENDENCIES'
 TP="$TP\n  - Reverse dependencies:"
 DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
+  || abort 'Failed to get reverse dependencies.'
+[[ -z "$DEP" ]] \
   && TP="$TP ok" \
   || TP="$TP `fail "$DEP"`"
 
