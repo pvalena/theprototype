@@ -26,13 +26,13 @@ N="${1:-1}"
 
 for n in {1..$N}; do
   echo -e "\n>>> Build missing packages (1x)"
-  grep -r 'requires libruby.so.2.7()(64bit), but none of the providers can be installed' \
+  grep -r 'requires libruby.so.2.7()(64bit)' \
     | cut -d' ' -f4 | sort -u \
     | xargs -r dnf repoquery whatrequires --disablerepo='*' --enablerepo='rawhide' --enablerepo='copr:copr.fedorainfracloud.org:pvalena:rubygems-testing' --qf '%{source_name}' \
     | run
 
   B=(
-   3 'cannot install both ruby-libs-2.7.1-132.fc33.1.x86_64 and ruby-libs-3.0.0-0.'
+   3 'cannot install both ruby-libs-'
    1 'RPM build errors'
   )
   for BT BF in ${B}; do
