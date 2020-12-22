@@ -17,14 +17,14 @@ zsh -n "$0"
 
 [[ "$1" == "-l" ]] && {
   me="$(readlink -e "$0")"
-  exec noploop -v -w 1h \
+  exec noploop -v -w 20h \
     "${me} $DEBUG -i $I" \
 }
 
 [[ -z "$1" ]] || exit 2
 
 x=pvalena
-f="$(readlink -f failed.txt)"
+f="$(readlink -f cpr/update_failed.txt)"
 touch "$f"
 
 run="$(readlink -e ~/lpcsf-new/test/scripts/gems/run.sh)"
@@ -46,9 +46,14 @@ read -r -d '' MAIN << EOM
   [[ -n "$DEBUG" ]] && set -x
   sleep "$I"
 
+  msg () {
+    local m="\$1"
+    shift
+    echo -e "\n>>> {}" "\n>> \${m}:" "\$@"
+  }
+
   next () {
-    echo -e "\n>>> {}"
-    echo "> Skipping:" "\$@" >&2
+    msg "Skipping" "\$@" >&2
     exit 1
   }
 
@@ -105,27 +110,42 @@ read -r -d '' MAIN << EOM
 
     $gsgr '^nothing to commit ' || next 'Uncomitted changes'
 
-    git push -u "$x" "rebase"
+    git branch -u "${x}/rebase"
 
     $gsgr "^Your branch is up to date with '${x}/rebase'" || next 'Outdated branch'
   }
 
-  echo -e "\n>>> {}"
-  echo -e "> Trying New Update"
-
-  $run -u \
-    && {
-      tmp="\$(grep -v "^{}$" "$f")"
-      echo "\$tmp" > "$f"
-    }
+  O="\$(
+      echo -e "\n>>> {}"
+      $run -u 2>&1
+    )"
+  R=\$?
 
   cd ..
   p="\$(cut -d'-' -f2- <<< '{}')"
   cpr="cpr/\${p}-update.log"
 
-  [[ -r "\$cpr" ]] \
-    && tail -n 1 "\$cpr" | grep -q ' is current' \
-    && exit 0
+  [[ -r "\$cpr" ]] && {
+    [[ \$R -eq 0 ]] && {
+      msg "Success" "Package updated"
+    }
+
+    [[ \$R -eq 2 ]] && {
+      tail -n 1 "\$cpr" | grep -q ' is current' \
+        && R=0
+    }
+
+    [[ \$R -eq 0 ]] && {
+      tmp="\$(grep -v "^{}$" "$f")"
+      echo "\$tmp" > "$f"
+      exit 0
+    }
+    :
+  } || {
+    msg "Error" "Package update log not found:" "\$cpr"
+  }
+
+  echo "\$O"
 
   grep -q "^{}$" "$f" \
     || echo "{}" >> "$f"
@@ -133,6 +153,8 @@ EOM
 
 bash -c -n "$MAIN" || exit 3
 
-ls -d rubygem-*/*.spec | cut -d'/' -f1 | sort -uR \
+ls -d rubygem-*/*.spec \
+  | cut -d'/' -f1 \
+  | sort -uR \
   | xargs -i bash -c "$MAIN" 2>&1 \
   | tee -a "cpr/update_`date -I`.log"
