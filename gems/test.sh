@@ -1,13 +1,14 @@
 #!/bin/bash
 
-### REPORTING START ###
-{
-
 set -e
 bash -n "$0"
 
-l="###############################"
+### REPORTING START ###
+{
+
+## METHODS
 section () {
+  local l="###############################"
   { echo; } 2>/dev/null
   : "${l} $@ ${l}"
 }
@@ -22,17 +23,17 @@ fail () {
       && re="${1}" \
       || { re="see below"; mu=y; }
 
-    echo -n " (${1})"
+    echo -n " (${re})"
   }
 
   echo "**"
   [[ -n "$mu" ]] && echo -e "\n${1}"
 }
 
-MYD="`readlink -e "$(dirname "$0")/.."`"
-[[ -d "$MYD" ]]
-
-rel='34'
+abort () {
+  echo "--> Testing failed: " "$@" >&2
+  exit 1
+}
 
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
@@ -46,12 +47,38 @@ mck () {
   return $?
 }
 
+srpm () {
+  {
+    rm -rf result/
+    rm *.src.rpm
+  } &>/dev/null
+
+  mck --buildsrpm --spec *.spec --sources . 2>&1 \
+    || abort 'Failed build SRPM.'
+
+  mv -f result/*.src.rpm . || abort "Failed to copy SRPM."
+  ls *.src.rpm &>/dev/null || abort "Failed to locate SRPM."
+}
+
+
+## CONSTANTS
+rel='34'
+
 me="pvalena"
 mc="rubygems"
 gp='rubygem-'
 
 COPR_URL="https://download.copr.fedorainfracloud.org/results/$me/"
 
+tb='copr-dist'
+rm="${tb}/master"
+bl='result/build.log'
+
+MYD="`readlink -e "$(dirname "$0")/.."`"
+[[ -d "$MYD" ]] || abort "Could not scripts directory"
+
+
+## ARGS
 [[ "$1" == '-b' ]] && {
   CR="$2"
   shift 2
@@ -105,94 +132,108 @@ msr="${msr} -r $mrr"
   mc="vagrant"
   gp="vagrant-"
   shift
-} ||:
+  :
+}
 
-tb='copr-dist'
-rm="${tb}/master"
-bl='result/build.log'
 
-[[ -n "$KJ" ]] || {
+## INIT
+[[ -n "$KJ$FAS" ]] || {
   kl="$me@FEDORAPROJECT\.ORG"
   klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
-    kinit "$kl" -l 30d -r 30d -A
+    kinit "$kl" -l 30d -r 30d -A || abort "Failed to kinit: $kl"
     pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
   }
 }
 
-set -x
+set +e
+set -o pipefail
 
 p="$1"
 [[ -n "$p" ]] && {
   grep -q "^$gp" <<< "$p" || p="$gp$p"
-  [[ -d "$p" ]] || fedpkg --user "$me" clone -a "$p"
-  cd "$p" || exit 2
+  [[ -d "$p" ]] || {
+    fedpkg --user "$me" clone -a "$p" || abort "Failed to clone: $p"
+  }
+  cd "$p" || abort "Failed to CD: $p"
   :
 } || {
-  p="`basename "$PWD"`"
+  p="`basename "$PWD"`" || abort "Invalid PWD: $PWD"
 }
 g="$(cut -d'-' -f2- <<< "$p")"
 
-[[ -n "$p" && -n "$g" ]]
-grep "^$gp" <<< "$p" &>/dev/null
+[[ -n "$p" && -n "$g" ]] || abort "Invalid Gem, package name: '$g', '$p'"
+grep "^$gp" <<< "$p" &>/dev/null || abort "Invalid prefix in '$p', expected: $gp"
 
+
+## Pull changes (non-continue)
 [[ -n "$CON" ]] || {
-  gitt ||:
+  gitt || abort 'Failed to stash'
 
-  [[ -n "$pr" ]] || {
+  # Use COPR repo as default
+  [[ -n "$pr$CR" ]] || {
     #for x in {1..2}; do
     #  git remote remove "$tb"
     #done
 
-    git remote add "${tb}" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git" ||:
-    gitf "$tb"
+    git remote add "${tb}" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git"
+    gitf "$tb" || abort "Failed to fetch: $tb"
     gitc "$tb" \
       || gitcb "$tb" -t "$rm"
 
-    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]]
-    gitrh "$rm"
-    gitb -u "$rm"
+    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "$tb" ]] \
+      || abort "Failed to checkout copr branch '$tb'"
+
+    gitrh "$rm" || abort "Failed to reset to $rm"
+    gitb -u "$rm" || abort "Failed set upstream to $rm"
   }
 
-  #koji?
-  #git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$p" ||:
-  #gitf "$me"
+  # Specific Copr build
   [[ -z "$CR" ]] || {
     u="${COPR_URL}${mc}/fedora-rawhide-x86_64/`printf "%08d" $CR`-${p}/"
-    srpm="$(
+    srcf="$(
       curl -Lksf "$u" \
         | tr -s '<' '\n' \
         | grep -E "^a href='.*\.src\.rpm'" \
         | cut -d"'" -f2
     )"
-    [[ -n "$srpm" ]]
-    rm *.src.rpm ||:
+    [[ -n "$srcf" ]] || abort "SRPM not found in: $u"
 
-    curl -OLksf "$u/$srpm"
-    [[ -r "$srpm" ]]
+    rm *.src.rpm &>/dev/null
+    curl -OLksf "$u/$srcf"
+    [[ -r "$srcf" ]] || abort "SRPM download failed: $u/$srcf"
 
-    rpm2cpio *.src.rpm \
-      | cpio -uidmv --no-absolute-filenames
+    rpm2cpio "$srcf" \
+      | cpio -uidmv --no-absolute-filenames \
+      || abort "Failed to unpack SRPM: $srcf"
   }
 
+  # TODO: koji build?
+  # git remote add "$me" "ssh://$me@pkgs.fedoraproject.org/forks/$me/rpms/$p"
+  # gitf "$me"
+
+  # Pull request from dist-git
   [[ -z "$pr" ]] || {
-    gitc master
-    gitb -D "pr$pr"
-    git fetch origin "refs/pull/$pr/head:pr$pr"
+    gitc master || abort 'Failed to checkout master'
+    gitb -D "pr$pr" || abort "Failed to delete branch pr$pr"
+    git fetch origin "refs/pull/$pr/head:pr$pr" || abort "Failed to fetch: origin 'refs/pull/$pr/head:pr$pr'"
     gitc "pr$pr"
 
-    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "pr$pr" ]]
+    [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "pr$pr" ]] \
+      || abort "Failed to checkout the PR #$PR"
   }
 
-  rm *.gem
-  gem fetch "$g" ||:
+  # Simply fetch latest gem
+  # rm *.gem &>/dev/null
+  gem fetch "$g" || abort 'Failed to fetch:'
 }
+
+## Testing
+E=''
+set -x
 
 [[ -n "$FAS" ]] || {
   section 'SRPM'
-  rm *.src.rpm ||:
-  rm -rf result/ ||:
-  #fedpkg --release master sources
-  fedpkg --release f$rel srpm
+  srpm
 
   section 'BUILD'
   for c in $CINIT; do
@@ -203,6 +244,14 @@ grep "^$gp" <<< "$p" &>/dev/null
     mck $c
     sleep 1
   done
+
+  # In case we dont do this from gup.sh
+  [[ -z "$KJ" ]] && {
+    TP="$TP\n  - Koji build:"
+    KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s -t rawhide"`" \
+      && TP="$TP ok" \
+      || TP="$TP `fail "$KJ"`"
+  }
 }
 
 section 'TESTS'
@@ -222,7 +271,7 @@ grep -q '^Executing(%check)' "$bl" && {
       ! grep ' errors'   <<< "$z" || grep -E '(^|\s+)0 errors'   <<< "$z" \
         && TP="$TP ok" \
         || TP="$TP `fail "errors occured"`"
-      :
+        :
       } || TP="$TP `fail "failures occured"`"
       :
     } || TP="$TP `fail "no assertions"`"
@@ -230,7 +279,6 @@ grep -q '^Executing(%check)' "$bl" && {
 } || TP="$TP `fail "%check is missing"`"
 
 section 'INSTALL'
-E=''
 mar=''
 x="$(find result -name "*.fc${rel}.noarch.rpm" -o -name "*.fc${rel}.x86_64.rpm")"
 [[ -n "$x" ]] && {
@@ -250,13 +298,11 @@ mck --unpriv --shell '
   :
 ' && TP="$TP ok" || TP="$TP `fail`"
 
-
 section 'DEPENDENCIES'
 TP="$TP\n  - Reverse dependencies:"
 DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
   && TP="$TP ok" \
   || TP="$TP `fail "$DEP"`"
-
 
 [[ -n "$E" ]] || {
   section 'SMOKE'
@@ -277,7 +323,6 @@ DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
 }
 
 section 'RPMLINT'
-set -o pipefail
 TP="$TP\n  - rpmlint:"
 RPML="$(
   rpmlint result/*.rpm *.spec 2>/dev/null \
@@ -289,21 +334,16 @@ RPML="$(
   && TP="$TP ok" \
   || TP="$TP `fail "$RPML"`"
 
-
-{ set +x ; } &>/dev/null
-
+{ set +x; } &>/dev/null
 
 section 'SUMMARY'
-# In case we dont do this from gup.sh
-[[ -z "$KJ$E" ]] && {
-  KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`"
-  :
-} || KJ="https://koji.fedoraproject.org/koji/taskinfo?taskID=$KJ" \
+[[ -z "$KJ" ]] \
+  && KJ="Build missing." \
+  || KJ="https://koji.fedoraproject.org/koji/taskinfo?taskID=$KJ" \
 
 [[ -z "$CR" ]] \
-  && CR="_TBD_" \
+  && CR="Build missing." \
   || CR="https://copr.fedorainfracloud.org/coprs/build/$CR"
-
 
 R=0
 [[ -n "$E" ]] && {
@@ -312,12 +352,13 @@ R=0
   :
 } || E='Success'
 
-
 echo -e "\n=> $E\n_ _ _ _\n\nrpmlint: $RPML\n"
 
 } >&2
 ### REPORTING END ###
 
+
+## Output Summary
 cat <<EOLX | tee -a /dev/stderr
 
 _ _ _ _
@@ -325,10 +366,10 @@ _ _ _ _
 To have latest $g gem in Fedora.
 
 
-Up-to-date Koji scratch-build:
+Koji scratch-build:
 $KJ
 
-Up-to-date Copr build:
+Copr build:
 $CR
 
 Checks:
