@@ -4,7 +4,7 @@ set -e
 bash -n "$0"
 
 abort () {
-  echo "$@" >&2
+  echo -e "Error: " "$@" >&2
   exit 1
 }
 
@@ -99,13 +99,30 @@ klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
 
 cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $G"
 
+# Quiet run
 [[ -z "$Q" ]] || {
-  X="$( bash -c "${cmd} --nowait" 2>&1 )" || abort "Failed:\n$X"
-  grep -q '^Task info: ' <<< "$X" || abort "Invalid output:\n$X"
-  grep '^Task info: ' <<< "$X" | cut -d' ' -f3
-  exit 0
+  Y="$( bash -c "${cmd} --nowait" 2>&1 )"
+
+  X="$( grep '^Created task: ' <<< "$Y" | cut -d' ' -f3 )"
+
+  [[ -n "$X" ]] \
+    && grep -E '^[0-9]*' <<< "$X" \
+    || abort "Failed to start build: $Y"
+
+  S=
+  for x in {1..5}; do
+    sleep 15
+
+    S="$( koji watch-task "$X" 2>&1 )"
+    grep -q 'completed successfully$' <<< "$S" && exit 0
+    grep -v '0 failed$' <<< "$S" | grep -q 'failed$' && exit 1
+    grep -q 'canceled$' <<< "$S" && exit 1
+  done
+
+  abort "Could not get task status for $X!\n$S"
 }
 
+# Standard run
 date -Isec
 
 bash -c "${cmd}" 2>&1 \
