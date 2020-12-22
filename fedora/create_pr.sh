@@ -17,19 +17,51 @@ abort () {
 [[ "$1" == '-d' ]] && {
   DEBUG="$1"
   shift
-} ||:
+  :
+} || DEBUG=
 
-[[ -n "$1" ]] || abort 'You need to provide repo.'
-REPO="$1"
-shift
+[[ "$1" == '-f' ]] && {
+  FORCE="$1"
+  shift
+  :
+} || FORCE=
 
-[[ -n "$1" ]] || abort 'You need to provide title.'
-TITLE="$1"
-shift
+[[ "$1" == '-g' ]] && {
+  GEN="$1"
+  shift
+  :
+} || GEN=
 
-[[ -n "$1" ]] || abort 'You need to provide comment.'
-COMMENT="$1"
-shift
+
+[[ -n "$1" ]] && {
+  REPO="$1"
+  shift
+  :
+} || {
+  [[ -n "$GEN" ]] \
+    && REPO="`basename $PWD`" \
+    || abort 'You need to provide repo.'
+}
+
+[[ -n "$1" ]] && {
+  TITLE="$1"
+  shift
+  :
+} || {
+  [[ -n "$GEN" ]] \
+    && TITLE="`gith --oneline | head -1 | cut -d' ' -f2-`" \
+    || abort 'You need to provide title.'
+}
+
+[[ -n "$1" ]] && {
+  COMMENT="$1"
+  shift
+  :
+} || {
+  [[ -n "$GEN" ]] \
+    && COMMENT="`git show --stat | tail -n +6 | head -n -3`" \
+    || abort 'You need to provide comment.'
+}
 
 [[ -n "$1" ]] && {
   USERNAME="$1"
@@ -41,13 +73,13 @@ shift
   BRANCH_FROM="$1"
   shift
   :
-} || BRANCH_FROM=rebase
+} || BRANCH_FROM="`gitb | grep '^* ' | cut -d' ' -f2-`"
 
 [[ -n "$1" ]] && {
   BRANCH_TO="$1"
   shift
   :
-} || BRANCH_TO=master
+} || BRANCH_TO='master'
 
 # MAIN
 getpr="$(dirname "$0")/get_pr.sh"
@@ -56,7 +88,13 @@ getpr="$(dirname "$0")/get_pr.sh"
 
 PR="$($getpr "$REPO")" ||:
 
-[[ -z "$PR" ]] || abort "PR already exists: $PR"
+[[ -z "$PR" ]] || {
+  m="PR already exists: $PR"
+
+  [[ -n "$FORCE" ]] \
+    && echo "Warning: $m" \
+    || abort "$m"
+}
 
 [[ -n "$DEBUG" ]] && set -x && v='-v' || v=
 
