@@ -82,10 +82,12 @@ find -L -mindepth 2 -maxdepth 3 -type f -name '*.txz' -o -name '*.tgz' | xargs -
 
 spectool -S "$X" | grep ^Source | cut -d' ' -f2 | grep -E '^http[s]*://' | xargs -r -P 0 curl -sLO
 
-for x in `spectool -S "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev | grep -vE '(\.(rb|js|patch|1|sh)|LICENSE|binstub|rubygems\..*|macros\..*)$'` ; do
+regex='(\.(rb|js|patch|1|sh|stp)|LICENSE|binstub|rubygems\..*|macros\..*)$'
+
+for x in `spectool -S "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev | grep -vE "$regex"` ; do
   echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`" | tee -a /dev/stderr
 done > sources
 
-for x in `spectool -S "$X" | grep -E '^(Source|Patch)' | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev | grep -E '(\.(rb|js|patch|1|sh)|LICENSE|binstub|rubygems\..*|macros\..*)$'` ; do
+for x in `spectool -S "$X" | grep -E '^(Source|Patch)' | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev | grep -E "$regex"` ; do
   git add "$x"
 done
