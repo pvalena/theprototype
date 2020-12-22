@@ -12,12 +12,18 @@ abort () {
   exit 1
 }
 
+[[ "$1" == '-n' ]] && {
+  NAMESP="$2"
+  shift 2
+  :
+} || NAMESP=rpms
+
 [[ -n "$1" ]] || exec "$0" "`basename "$PWD"`"
 
 while [[ -n "$1" ]]; do
   repo="$1"
   [[ -n "$DEBUG" ]] && set -x
-  curl -s -X POST -H "Authorization: token $TOKEN" -d "repo=$repo&namespace=rpms&wait=1" "${SRC_FPO_RPMS_FORK}"
+  curl -s -X POST -H "Authorization: token $TOKEN" -d "repo=$repo&namespace=${NAMESP}&wait=1" "${SRC_FPO_RPMS_FORK}"
   { [[ -n "$DEBUG" ]] && set +x ; } &>/dev/null
   echo
   shift
