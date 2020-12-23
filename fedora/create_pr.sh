@@ -3,15 +3,20 @@
 set -e
 bash -n "$0"
 
-# CONFIG
-SRC_FPO_RPMS='https://src.fedoraproject.org/api/0'
-TOKEN="`cat ~/.config/fedora`"
-
 # METHODS
 abort () {
   echo "Error:" "$@" >&2
   exit 1
 }
+
+# VARS
+myd="`dirname "$(readlink -e "$0")"`"
+get="${myd}/get_pr.sh"
+[[ -x "$get" ]] || abort "Could not find 'get_pr.sh'."
+
+# CONFIG
+SRC_FPO_RPMS='https://src.fedoraproject.org/api/0'
+TOKEN="`cat ~/.config/fedora`"
 
 # ARGS
 [[ "$1" == '-d' ]] && {
@@ -101,3 +106,5 @@ PR="$($getpr "$REPO")" ||:
 curl $v -s -X POST -H "Authorization: token $TOKEN" -d \
   "title=${TITLE}&branch_to=${BRANCH_TO}&repo_from_namespace=rpms&repo_from_username=${USERNAME}&repo_from=${REPO}&branch_from=$BRANCH_FROM&initial_comment=$COMMENT" \
   "${SRC_FPO_RPMS}/rpms/$REPO/pull-request/new"
+
+$get
