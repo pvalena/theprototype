@@ -4,7 +4,7 @@ set -e
 bash -n "$0"
 
 xdnf="dnf -q repoquery '--disablerepo=*' --enablerepo=rawhide --enablerepo=rawhide-source --enablerepo='copr:copr.fedorainfracloud.org:pvalena:ruby-testing' --enablerepo='copr:copr.fedorainfracloud.org:pvalena:rubygems-testing' --latest-limit=1"
-fail="{ echo '{}' >> failed.txt; exit 1; }"
+fail="{ echo '{}' >> `readlink -f failed.txt`; exit 1; }"
 
 while [[ -n "$1" ]]; do
   p="$1"
