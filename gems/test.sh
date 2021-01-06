@@ -27,7 +27,7 @@ fail () {
   }
 
   echo "**"
-  [[ -n "$mu" ]] && echo -e "\n${1}"
+  [[ -n "$mu" ]] && echo -e "\n${1}\n"
 }
 
 abort () {
@@ -37,7 +37,8 @@ abort () {
 
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
-msr="${v}-n --isolation=nspawn --result=./result"
+msr="${v}-n --result=./result"
+# TODO: use `--isolation=nspawn` when possible.
 mar='--bootstrap-chroot'
 mck () {
   a=""
@@ -299,9 +300,12 @@ mck --unpriv --shell '
 ' && TP="$TP ok" || TP="$TP `fail`"
 
 section 'DEPENDENCIES'
+bash -c "$MYD/gems/whatrequires.sh -a '$g'" \
+  || abort 'Failed to get reverse dependencies.'
+
 TP="$TP\n  - Reverse dependencies:"
 DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
-  || abort 'Failed to get reverse dependencies.'
+  || abort 'Failed to get reverse dependencies (2).'
 [[ -z "$DEP" ]] \
   && TP="$TP ok" \
   || TP="$TP `fail "$DEP"`"
