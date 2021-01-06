@@ -66,7 +66,7 @@ for g in "$@"; do
       echo -e "${p}:\n$O\n"
       :
     } || {
-      tr -s '\n' ' ' <<< "$O"
+      echo "${p}: `tr -s '\n' ' ' <<< "$O"`"
     }
   done
 done
