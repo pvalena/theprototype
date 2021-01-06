@@ -1,4 +1,20 @@
 #!/bin/zsh
+#
+# ./check-update.sh
+#
+#   Browses all directories in this folder, and tries to attempt the package
+#   using `gems/run.sh -u`.
+#   Before that, it checks the repository status for uncommited / unpushed
+#   changes etc., and halts if anything is found.
+#
+#
+#   Re-run with '-d' on failures.
+#
+#   Run with '-i TIME' if you want more to change
+#     sleep TIME in between the respective update attempts.
+#
+#   Run with `-l` to run using `noploop -v` (see scripts).
+#
 
 set -e
 zsh -n "$0"
@@ -27,7 +43,7 @@ x=pvalena
 f="$(readlink -f cpr/update_failed.txt)"
 touch "$f"
 
-run="$(readlink -e ~/lpcsf-new/test/scripts/gems/run.sh)"
+run="$(readlink -e `dirname "$0"`/run.sh)"
 
 [[ -x "$run" ]]
 [[ -r "$f" ]]
@@ -80,8 +96,13 @@ read -r -d '' MAIN << EOM
     }
   } &>/dev/null
 
+  $gsgr '^Your branch is behind' && {
+    $gsgr '^On branch rebase$' && git rebase "$x/rebase"
+    $gsgr '^On branch master$' && git rebase origin/master
+  }
+
+  #$gsgr '^Your branch is behind' && next 'Branch is behind'
   $gsgr '^Changes not staged for commit' && next 'Unstaged changes'
-  $gsgr '^Your branch is behind' && next 'Branch is behind'
   $gsgr '^Your branch and ' && next 'Branch has diverged'
 
   $gsgr '^nothing to commit ' || next 'Uncomitted changes'
@@ -155,6 +176,6 @@ bash -c -n "$MAIN" || exit 3
 
 ls -d rubygem-*/*.spec \
   | cut -d'/' -f1 \
-  | sort -uR \
+  | sort -u \
   | xargs -i bash -c "$MAIN" 2>&1 \
   | tee -a "cpr/update_`date -I`.log"
