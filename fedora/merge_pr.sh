@@ -37,5 +37,11 @@ abort () {
 
 [[ -n "$DEBUG" ]] && set -x && v='-v' || v=
 
-curl -s $v -X POST -H "Authorization: token $TOKEN" -d "wait=1" \
-  "${SRC_FPO_RPMS}${REPO}/pull-request/${ID}/merge"
+q="curl -s $v -X POST"
+q="${q} -H \"Authorization: token $TOKEN\" -d \"wait=1\""
+q="${q} \"${SRC_FPO_RPMS}${REPO}/pull-request/${ID}/merge\""
+
+O="$(bash -c "$q" | jq -r '.message')"
+[[ -z "$O" ]] && exit 1
+
+echo "$O"
