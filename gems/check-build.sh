@@ -29,14 +29,13 @@ abort () {
   :
 } || LOOP=
 
-
 # More information on skipped packages
 [[ "$1" == "-v" ]] && {
   INFO="$1"
   shift
 }
 
-[[ -z "$1" ]] || abort "Unknown arg: '$1'"
+[[ "${1:0:1}" == '-' ]] && abort "Unknown arg: '$1'"
 
 [[ -n "$LOOP" ]] && {
   me="$(readlink -e "$0")"
@@ -85,6 +84,10 @@ read -r -d '' MAIN << EOM
     exit 1
   }
 
+  info () {
+    [[ -n "$INFO" ]] && echo "\$@"
+  }
+
   cd '{}'
 
   git fetch origin &>/dev/null || $fail
@@ -108,8 +111,12 @@ read -r -d '' MAIN << EOM
   mer=
   w='[\s \.,\-\!]*'
   for i in \$($gpi -g '^Update to '); do
-    [[ -n "\$($gpc -g "^\${w}LGTM\${w}$" -i "\$i")" ]] && {
-      $mpr -i "\$i" || $fail
+    [[ -n "\$($gpc -g "^\${w}LGTM\${w}" -i "\$i")" ]] && {
+      info "Approved PR found: \$i"
+
+      m="\$($mpr -i "\$i")" || $fail
+
+      [[ "\$m" == 'Changes merged!' ]] || next "Failed to merge the PR: \$m"
 
       sleep 5
 
@@ -119,6 +126,9 @@ read -r -d '' MAIN << EOM
 
       mer="\$i"
       break
+      :
+    } || {
+      info 'Update pending, no LGTM yet.'
     }
   done
 
@@ -145,9 +155,7 @@ read -r -d '' MAIN << EOM
   [[ "\$e" == "<${x}@${d}>" && "\$e" == "\$a" ]] || {
     [[ -z "\$mer" ]] || $fail
 
-    [[ -n "$INFO" ]] && {
-      next "Email mismatch: '\$e', '\$a'"
-    }
+    info "Email mismatch: '\$e', '\$a' (expected '<${x}@${d}>')"
     exit 0
   }
 
@@ -204,9 +212,16 @@ EOM
 
 bash -c -n "$MAIN" || abort "Syntax check failed!"
 
-ls -d rubygem-*/*.spec | cut -d'/' -f1 | sort -uR \
-  | xargs -i bash -c "$MAIN" 2>&1 \
-  | grep -v '^+ git status -uno$'
+[[ -z "$1" ]] && {
+  ls -d rubygem-*/*.spec | cut -d'/' -f1 | sort -u \
+    | xargs -i bash -c "$MAIN" 2>&1 \
+    | grep -v '^+ git status -uno$'
+  :
+} || {
+  ls -d "$@" | cut -d'/' -f1 | sort -u \
+    | xargs -i bash -c "$MAIN" 2>&1 \
+    | grep -v '^+ git status -uno$'
+}
 
 echo
 exit 0
