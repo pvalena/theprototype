@@ -45,17 +45,9 @@ srpm () {
     rm *.src.rpm
   } &>/dev/null
 
-  mar="$mar -r fedora-rubygems-x86_64"
+  E="`mock -n --result=./result -r fedora-${COP}-x86_64 --bootstrap-chroot --buildsrpm -v --spec *.spec --sources . 2>&1`" || {
+    warn "Failed to create $1 srpm, using fallback.\n" "$E"
 
-  E="`mck -buildsrpm -v --spec *.spec --sources . 2>&1`" || {
-    warn "Failed to create $1 srpm\n" "$E"
-
-    [[ -n "$CON" ]] || {
-      warn 'Trying to remove' 'richdeps'
-
-      sed -i 's/^Recommends: /Requires: /' *.spec
-      sed -i '/^Suggests: / s/^/#/' *.spec
-    }
     E="`fedpkg --release $REL srpm 2>&1`" || {
       die "Failed to create $1 srpm(2)" "$E"
     }
@@ -425,7 +417,7 @@ echo
 
 [[ -z "$COB" ]] || {
   ask -s 'Run copr build' && {
-    bash -c "set -x; $CRB -c -t 30m $SIL"
+    bash -c "set -x; $CRB -c -t 30m $COP $SIL"
 
     l="$(readlink -e "../copr-r8-${COP}/${PKG}.log")"
     [[ -r "$l" ]] || die "COPR log not found"
