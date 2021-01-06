@@ -3,8 +3,10 @@
 set -e
 bash -n "$0"
 
+me='pvalena'
+
 # for koji scratch-build
-kl="pvalena@FEDORAPROJECT\.ORG"
+kl="$me@FEDORAPROJECT\.ORG"
 
 myd="`dirname "$(readlink -e "$0")"`"
 gup="${myd}/gup.sh"
@@ -152,7 +154,7 @@ rm -f "$u"
   tt="$(bash -c "set -e; cd '$p'; git status -uno 2>&1")"
   for a in \
     'On branch rebase' \
-    "Your branch is up to date with 'pvalena/rebase'." \
+    "Your branch is up to date with '$me/rebase'." \
     "nothing to commit"
   do
     grep -q "^$a" <<< "$tt" || {
@@ -211,7 +213,7 @@ addlog 'gem2rpm diff' "$d"
 echo -e "${sep}\n"
 
 [[ -n "$UPD" && -n "$GST" ]] && {
-  Q="$($cpr "$p" "`head -1 <<< "$t"`" "`cat "$o"`")" \
+  Q="$($cpr "$p" "`head -1 <<< "$t"`" "`cat "$o"`" "$me" rebase)" \
     || echo "Failed to create PR:" "$Q" 1>&2
 
   sleep 1
@@ -220,7 +222,7 @@ echo -e "${sep}\n"
 pr="$($gpr "$p")"
 
 [[ -z "$pr" ]] && {
-  echo "You can create PR manualy: https://src.fedoraproject.org/fork/pvalena/rpms/${p}/diff/master..rebase"
+  echo "You can create PR manualy: https://src.fedoraproject.org/fork/$me/rpms/${p}/diff/master..rebase"
   # gistf "$o"
   :
 } || {
