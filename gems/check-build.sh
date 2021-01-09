@@ -85,7 +85,9 @@ read -r -d '' MAIN << EOM
   }
 
   info () {
-    [[ -n "$INFO" ]] && echo "\$@"
+    [[ -n "$INFO" ]] && {
+      echo -e ">>> {}:" "\$@"
+    }
   }
 
   cd '{}'
@@ -114,9 +116,9 @@ read -r -d '' MAIN << EOM
     [[ -n "\$($gpc -g "^\${w}LGTM\${w}" -i "\$i")" ]] && {
       info "Approved PR found: \$i"
 
-      m="\$($mpr -i "\$i")" || $fail
+      m="\$($mpr -i "\$i")" || next "Failed to merge the PR: \$m"
 
-      [[ "\$m" == 'Changes merged!' ]] || next "Failed to merge the PR: \$m"
+      [[ "\$m" == 'Changes merged!' ]] || next "Failed to merge the PR (2): \$m"
 
       sleep 5
 
@@ -152,10 +154,17 @@ read -r -d '' MAIN << EOM
   # commit email
   a="\$(git log -1 origin/master | head -2 | tail -n 1 | rev | cut -d' ' -f1 | rev)"
 
-  [[ "\$e" == "<${x}@${d}>" && "\$e" == "\$a" ]] || {
+  [[ "\$e" == "\$a" ]] || {
     [[ -z "\$mer" ]] || $fail
 
-    info "Email mismatch: '\$e', '\$a' (expected '<${x}@${d}>')"
+    next "Email inconsistency: '\$e' vs '\$a')"
+  }
+
+  m="<${x}@${d}>"
+  [[ "\$e" == "\$m" ]] || {
+    [[ -z "\$mer" ]] || $fail
+
+    info "Email mismatch: '\$e' vs '\$m'"
     exit 0
   }
 
@@ -164,7 +173,7 @@ read -r -d '' MAIN << EOM
   echo -e "\n>>> {}"
   [[ -z "\$mer" ]] && {
     echo ">> Expected NVR like: \${exp}"
-    echo -n '> Current NVR: '
+    echo -n '>> Current NVR: '
     grep -E '^{}-[0-9]' <<< "$gems" || $fail
     :
   } || {
