@@ -15,19 +15,17 @@ section () {
 
 fail () {
   local mu=
-  local re=
+  local se='```'
   echo -n "**failed"
 
   [[ -z "$1" ]] || {
     [[ "`wc -l <<< "$1"`" == "1" ]] \
-      && re="${1}" \
-      || { re="see below"; mu=y; }
-
-    echo -n " (${re})"
+      && echo -n " (${1})" \
+      || mu=y
   }
 
   echo "**"
-  [[ -n "$mu" ]] && echo -e "\n${1}\n"
+  [[ -n "$mu" ]] && echo "${se}${1}${se}"
 }
 
 abort () {
@@ -249,7 +247,7 @@ set -x
   # In case we dont do this from gup.sh
   [[ -z "$KJ" ]] && {
     TP="$TP\n  - Koji build:"
-    KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s -t rawhide"`" \
+    KJ="`bash -c "$MYD/pkgs/kj-build.sh -q -s"`" \
       && TP="$TP ok" \
       || TP="$TP `fail "$KJ"`"
   }
