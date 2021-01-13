@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 require 'ap'
 require 'timeout'
@@ -65,10 +65,10 @@ def main (i = false, rmfile = false)
 
       stat = nil unless S.include? stat
 
-      if stat.nil? || stat.empty?
+      #if stat.nil? || stat.empty?
         q = %x[ grep '^Executing(%clean)' "#{logf}" ]
         stat = 'succeeded' unless q.nil? || q.empty?
-      end
+      #end
 
       stat = 'unknown' if stat.nil? || stat.empty?
     end
