@@ -81,6 +81,7 @@ read -r -d '' MAIN << EOM
   next () {
     echo -e "\n>>> {}"
     echo ">> Skipping:" "\$@" >&2
+    echo
     exit 1
   }
 
@@ -192,9 +193,13 @@ read -r -d '' MAIN << EOM
     }
   } &>/dev/null
   r="\$(git log -1 $x/rebase | head -1 | cut -d' ' -f2)"
-  $verb
 
-  [[ "\$c" == "\$r" ]]
+  [[ "\$c" == "\$r" ]] || {
+    echo -e ">> Commit mismatch: '\$c', '\$r'\n"
+    exit 1
+  }
+
+  $verb
 
   # safety checks
   [[ -n "\$c" ]] || $fail
