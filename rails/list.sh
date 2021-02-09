@@ -1,5 +1,5 @@
 #!/bin/bash
-# ./list.sh [-v VER] TAG
+# ./list.sh [-l][-v VER] TAG
 
 getlatest () {
   local P=
@@ -15,7 +15,11 @@ getlatest () {
     }
 
   done < <(sort -r | rev) | rev | sort
+}
 
+[[ '-l' == "$1" ]] && {
+  shift
+  exec cloop -w 60 "$0 $1 $2"
 }
 
 VER='[0-9]+'

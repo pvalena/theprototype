@@ -1,7 +1,7 @@
 #!/bin/bash
 # Check for update commit with VERSION
 #
-# ./check.sh [BRANCH] VERSION
+# ./check.sh VERSION [BRANCH]
 #   Optionally input 'f*' as BRANCH as a first arg. Default is 'master'.
 #   Mandatory is VERSION which will be checked for.
 #
@@ -13,8 +13,8 @@ die () {
   exit 1
 }
 
-[[ "${1:0:1}" == "f" ]] && { D="$1" ; shift ; } || D="master"
-[[ "$1" ]] || die "Arg missing"
+[[ -n "$1" ]] && { V="$1" ; shift ; } || die "Version missing"
+[[ -n "$1" ]] && { D="$1" ; shift ; } || D="master"
 
 my="$(readlink -e "`pwd`")"
 
@@ -52,7 +52,7 @@ for x in railties rails activesupport activestorage activerecord activejob actio
 
     echo -e "\n>>> $N"
 
-    T="Update to $N $1"
+    T="Update to $N $V"
 
     git fetch &>/dev/null || die "git fetch failed"
 

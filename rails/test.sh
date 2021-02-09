@@ -81,12 +81,12 @@ for cmd in \
   "rails new app --skip-bundle --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" \
   "sed -i \"s/\(gem .puma.\).*/\1/\" Gemfile" \
   "sed -i \"s/\(gem .listen.\).*/\1/\" Gemfile" \
-  "sed -i \"/gem .sass-rails./ s/sass/sassc/\" Gemfile" \
-  "sed -i \"s/\(gem .sassc-rails.\).*/\1/\" Gemfile" \
+  "sed -i \"/gem .sass-rails./ d\" Gemfile" \
+  "sed -i \"/gem .rack-mini-profiler./ d\" Gemfile" \
   "bundle config set deployment false" \
   "bundle config set without test" \
   "bundle install -r 3 --local" \
-  "( timeout 20 rails s puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q \"<title>Ruby on Rails</title>\" && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1"
+  "( timeout 20 rails s -u puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q \"<title>Ruby on Rails</title>\" && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1"
 do
   bash -c -n "$cmd" || die "Invalid command syntax: $cmd"
   lcmd="set -xe; cd ~/app || cd; $cmd || { { set +xe; } &>/dev/null; grep -vE '^#' Gemfile | grep -vE '^$'; gem list | grep '^rails '; exit 1; }"
