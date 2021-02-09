@@ -33,8 +33,7 @@ zsh -n "$0"
 
 [[ "$1" == "-l" ]] && {
   me="$(readlink -e "$0")"
-  exec noploop -v -w 20h \
-    "${me} $DEBUG -i $I" \
+  exec aux "${me} $DEBUG -i $I"
 }
 
 [[ -z "$1" ]] || exit 2
@@ -152,7 +151,7 @@ read -r -d '' MAIN << EOM
     }
 
     [[ \$R -eq 2 ]] && {
-      tail -n 1 "\$cpr" | grep -q ' is current' \
+      tail -n 3 "\$cpr" | grep -q '^\-\-\> Version is current\: ' \
         && R=0
     }
 

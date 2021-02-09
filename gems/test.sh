@@ -16,7 +16,14 @@ section () {
 fail () {
   local mu=
   local se='```'
-  echo -n "**failed"
+  local mg=
+  [[ "$1" == "-s" ]] && {
+    mg="needs inspection"
+    shift
+    :
+  } || mg="failed"
+
+  echo -n "**${mg}"
 
   [[ -z "$1" ]] || {
     [[ "`wc -l <<< "$1"`" == "1" ]] \
@@ -25,7 +32,11 @@ fail () {
   }
 
   echo "**"
-  [[ -n "$mu" ]] && echo "${se}${1}${se}"
+  [[ -n "$mu" ]] && {
+    echo -e "${se}\n"
+    echo "${1}"
+    echo -e "\n${se}"
+  }
 }
 
 abort () {
@@ -320,13 +331,14 @@ DEP="$( bash -c "$MYD/gems/whatrequires.sh -q '$g'" )" \
   || abort 'Failed to get reverse dependencies (2).'
 [[ -z "$DEP" ]] \
   && TP="$TP ok" \
-  || TP="$TP `fail "$DEP"`"
+  || TP="$TP `fail -s "$DEP"`"
 
 [[ -n "$E" ]] || {
   section 'SMOKE'
   TP="$TP\n  - Smoke test:"
   q="`sed -e 's/\-/\//' <<< "$g"`"
   q="`sed -e 's/^ruby//' <<< "$q"`"
+  q="`tr '[:upper:]' '[:lower:]' <<< "$q"`"
 
   for c in "rpm -q \"$p\"" "ruby -e \"require '\''$g'\''\" || ruby -e \"require '\''$q'\''\"" 0 ; do
     [[ "$c" == '0' ]] \

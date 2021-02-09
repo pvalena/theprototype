@@ -13,22 +13,25 @@ rebuild () {
 run () {
   sort -uR \
     | grep '^rubygem-' \
-    | tee -a /dev/stderr \
-    | xargs -ri zsh -c "cd .. || exit 255; echo -e '\n> {}'; [[ -d '{}' ]] || fedpkg co '{}'; set -e; cd '{}'; gits; echo; gits | grep -q \"Your branch is behind 'pvalena/rebase' by 1 commit, and can be fast-forwarded.\" && ! gits | grep -q 'modified:' && ! gits | grep -q '^Changes not staged for commit' && gite pvalena/rebase ; ~/lpcsf-new/test/scripts/pkgs/cr-build.sh rubygems-testing ; sleep 16"
+    | tee -a error.log \
+    | xargs -ri zsh -c "cd .. || exit 255; echo -e '\n> {}'; [[ -d '{}' ]] || fedpkg co '{}'; set -e; cd '{}'; gits; echo; gits | grep -q \"Your branch is behind 'pvalena/rebase' by 1 commit, and can be fast-forwarded.\" && ! gits | grep -q 'modified:' && ! gits | grep -q '^Changes not staged for commit' && gite pvalena/rebase ; ~/Work/lpcsn/home/lpcs/lpcsf-new/test/scripts/pkgs/cr-build.sh $target ; sleep 16"
 }
 
 { set +ex ; } &>/dev/null
 set -o pipefail
 
-cd copr-r8-rubygems-testing
+target="${1:-rubygems}"
+shift
 
 N="${1:-1}"
+
+cd copr-r8-$target || exit 1
 
 for n in {1..$N}; do
   echo -e "\n>>> Build missing packages (1x)"
   grep -r 'requires libruby.so.2.7()(64bit)' \
     | cut -d' ' -f4 | sort -u \
-    | xargs -r dnf repoquery whatrequires --disablerepo='*' --enablerepo='rawhide' --enablerepo='copr:copr.fedorainfracloud.org:pvalena:rubygems-testing' --qf '%{source_name}' \
+    | xargs -r dnf repoquery whatrequires --disablerepo='*' --enablerepo='rawhide' --enablerepo='copr:copr.fedorainfracloud.org:pvalena:$target' --qf '%{source_name}' \
     | run
 
   B=(

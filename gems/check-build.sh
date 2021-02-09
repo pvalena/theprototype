@@ -45,8 +45,9 @@ abort () {
 
 x=pvalena
 d="redhat.com"
-
+s="lpcs@lpcsn:/`pwd | cut -d'/' -f7-`"
 f=34
+
 myd="$(readlink -e "$0")"
 myd="`dirname "$(dirname "$myd")"`"
 lst="${myd}/pkgs/list.sh"
@@ -63,7 +64,7 @@ mpr="${myd}/fedora/merge_pr.sh"
 [[ -z "$DEBUG" ]] && silt=x || silt=''
 
 gsgr="git status -uno | grep -q"
-fail="{ pwd; git status -uno; exit 255; }"
+fail="{ echo; pwd; git status -uno; exit 255; }"
 silt="{ set +e${silt}; } &>/dev/null"
 verb="set -xe"
 
@@ -93,7 +94,10 @@ read -r -d '' MAIN << EOM
 
   cd '{}'
 
-  git fetch origin &>/dev/null || $fail
+  git fetch origin &>/dev/null || {
+    sleep 1
+    git fetch origin &>/dev/null || $fail
+  }
   ls *.spec &>/dev/null || $fail
 
   $gsgr '^Changes not staged for commit' && next 'Unstaged changes'
@@ -208,6 +212,10 @@ read -r -d '' MAIN << EOM
 
   $silt
   echo -e "\n>> Build New Update"
+
+  # Get sources from second computer
+  rsync -a --progress "${s}/{}/*.txz" . ||:
+  rsync -a --progress "${s}/../packages/{}/*.txz" . ||:
 
   # In case sources are elsewhere
   find "../../packages/{}/" \
