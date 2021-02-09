@@ -127,9 +127,13 @@ rm -f "$u"
 
 [[ -n "$UPD" ]] && {
   pr="$($gpr "$p")"
+  SKIPPR=
   [[ -n "$pr" ]] && {
     echo -e ">> Update already pending\nPull request: ${pr}\n"
-    [[ -z "$GST" || -n "$FCE" ]] || exit 0
+    [[ -z "$GST" || -n "$FCE" ]] || {
+      [[ -n "$CON" ]] || exit 0
+      SKIPPR=y
+    }
   }
 
   echo ">> Update"
@@ -219,7 +223,7 @@ addlog 'gem2rpm diff' "$d"
 
 echo -e "${sep}\n"
 
-[[ -n "$UPD" && -n "$GST" ]] && {
+[[ -z "$SKIPPR" && -n "$UPD" && -n "$GST" ]] && {
   Q="$($cpr "$p" "`head -1 <<< "$t"`" "`cat "$o"`" "$me" rebase)" \
     || echo "Failed to create PR:" "$Q" 1>&2
 

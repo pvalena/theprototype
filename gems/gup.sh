@@ -322,7 +322,7 @@ M="Update to $nam ${ver}${prever}."
 gcom="git|cd|tar|wget|curl"
 
 [[ -n "$CON" ]] || {
-  c="rpmdev-bumpspec -c '$M$R'"
+  c="rpmdev-bumpspec -D -c '$M$R'"
 
   bash -c "set -x; $c -n '$ver' '$X'" || {
     warn "Failed to use rpmdev-bumpspec bump version, using fallback."

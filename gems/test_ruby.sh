@@ -92,7 +92,7 @@ while :; do
     5) c="`ggs "Your branch is up-to-date with 'origin/master'"`" ;;
     6) c="`ggs "nothing to commit, working tree clean"`" ;;
     7) c="git pull" ;;
-    8) c="rpmdev-bumpspec *.spec" ;;
+    8) c="rpmdev-bumpspec -D *.spec" ;;
     9) c="ls result/*.rpm >/dev/null && exit ; mockall -c" ; w=y ;;
     *) break ;;
   esac

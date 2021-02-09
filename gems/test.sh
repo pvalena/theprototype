@@ -35,14 +35,16 @@ abort () {
 
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
-msr="${v}-n --result=./result"
-# TODO: use `--isolation=nspawn` when possible.
+msr="${v}-n --isolation=nspawn --result=./result"
 mar='--bootstrap-chroot'
+mrr='fedora-rawhide-'
+mrn=1
+mrs='-x86_64'
 mck () {
   a=""
   while [[ -n "$1" ]]; do a="$a '$1'"; shift; done
 
-  bash -c "set -x ; mock $msr $mar $a"
+  bash -c "set -x ; mock $msr -r ${mrr}${mrn}${mrs} $mar $a"
   return $?
 }
 
@@ -118,8 +120,7 @@ MYD="`readlink -e "$(dirname "$0")/.."`"
   mrr="$2"
   shift 2
   :
-} || mrr="fedora-rubygems-x86_64"
-msr="${msr} -r $mrr"
+} || mrr="fedora-rubygems-"
 
 [[ "$1" == '-u' ]] && {
   UPD="$1"
@@ -232,13 +233,26 @@ set -x
 
 [[ -n "$FAS" ]] || {
   section 'SRPM'
-  srpm
+
+  # check for buildroot availability
+  for x in {1..16}; do
+    mrn="${x}"
+    mck --shell 'echo available' \
+      | tee -a /dev/stderr \
+      | grep -q '^available$' \
+      && break
+
+    [[ $x -eq 16 ]] && abort 'No buildroot is available'
+  done
 
   section 'BUILD'
   for c in $CINIT; do
     mck -q $c
     sleep 1
   done
+
+  srpm
+
   for c in *.src.rpm; do
     mck $c
     sleep 1
