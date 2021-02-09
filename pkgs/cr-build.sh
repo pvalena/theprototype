@@ -3,6 +3,7 @@ set -e
 bash -n "$0"
 
 COPR_URL="https://download.copr.fedorainfracloud.org/results/pvalena/"
+stderr=/dev/stderr
 
 d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
@@ -50,8 +51,9 @@ l="`readlink -f "../copr-r8-${n}"`"
 
 ls *.src.rpm &>/dev/null || {
   rm result/*.src.rpm ||:
-  mck -buildsrpm --spec *.spec --sources . || \
-    mck -buildsrpm -v --spec *.spec --sources . || {
+  mar='-n --result=./result --bootstrap-chroot --buildsrpm --sources . --spec'
+  mock $mar *.spec || \
+    mock -v $mar *.spec || {
       echo "Warning: failed to build SRPM in mock, fallback to fedpkg." >&2
     }
   mv result/*.src.rpm . ||:
@@ -78,7 +80,9 @@ echo -ne "\e]2;C:$p\a"
 set +e -o pipefail
 nr=0
 while :; do
-  O="`date -Isec; timeout "${T}" copr-cli build $n *.src.rpm 2>&1 | tee -a /dev/stderr`"
+  [[ -w "$stderr" ]] && debug="tee -a $stderr" || debug=cat
+
+  O="`set +e -o pipefail; date -Isec; timeout "${T}" copr-cli build $n *.src.rpm 2>&1 | $debug`"
   R=$?
 
   b="`echo "$O" | grep '^Created builds: ' | cut -d' ' -f3`" ||:
