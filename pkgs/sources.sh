@@ -78,7 +78,7 @@ cmd="$(
   ask 'execute $cmd'
   bash -c "$cmd" || die 'Failed to execute $cmd'
 }
-find -L -mindepth 2 -maxdepth 3 -type f -name '*.txz' -o -name '*.tgz' | xargs -ri mv -v "{}" .
+find -L -mindepth 2 -maxdepth 3 -type f -name '*.tar.xz' -o -name '*.tar.gz' -o -name '*.txz' -o -name '*.tgz' | xargs -ri mv -v "{}" .
 
 spectool -S "$X" | grep ^Source | cut -d' ' -f2 | grep -E '^http[s]*://' | xargs -r -P 0 curl -sLO
 
