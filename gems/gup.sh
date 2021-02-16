@@ -376,6 +376,7 @@ echo
 
 # compare
 [[ -z "$CON" ]] && {
+  warn "Please check the gem compare output bellow"
   gem compare -bk "$nam" "$ov" "$ver$prever"
   :
 } || {
