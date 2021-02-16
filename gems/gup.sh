@@ -189,7 +189,7 @@ ask () {
 [[ -x "$KJB" ]] || warn 'Warning' "KJB shloud be defined and executable"
 [[ -x "$TST" ]] || warn 'Warning' "KJB shloud be defined and executable"
 [[ -x "$FRK" ]] || warn 'Warning' "FRK shloud be defined and executable"
-#[[ -x "$GET" ]] || die "GET needs to be defined and executable"
+[[ -x "$GET" ]] || die "GET needs to be defined and executable"
 
 # kinit
 [[ -z "$KOJ" ]] || {
@@ -346,6 +346,25 @@ gcom="git|cd|tar|wget|curl"
 [[ -n "$SKI" ]] || {
   bash -c "$GET '$X' '$gcom' '$YES'" || die 'Failed to execute $GET'
   echo
+
+  # .gitignore entry
+  # TODO: deduplicate with pkgs/sources.sh
+  regex='(\.(rb|js|patch|1|sh|stp)|LICENSE|binstub|rubygems\..*|macros\..*)$'
+  gi='.gitignore'
+
+  mv "${gi}" "${gi}-backup"
+  touch "$gi"
+  for x in `spectool -S "$X" | grep ^Source | rev | cut -d' ' -f1 | cut -d'/' -f1 | rev | grep -vE "$regex"` ; do
+    y="/$(sed -e "s/$ver/*/g" <<< "$x")"
+    [[ "$y" == '/' ]] && continue
+
+    echo "$y" >> "$gi"
+  done
+  wc -l "$gi" | grep '^0 ' && {
+    warn "Failed to regenerate $gi file, restoring."
+    mv "${gi}-backup" "${gi}"
+    :
+  }
 }
 
 # commit
