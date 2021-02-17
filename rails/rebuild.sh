@@ -56,7 +56,7 @@ shift
 SB="${1:-pvalena/rebase}"
 shift
 
-DB="${1:-origin/master}"
+DB="${1:-origin/rawhide}"
 shift
 
 [[ -z "$1" ]] || die "Unknown arg: $1"

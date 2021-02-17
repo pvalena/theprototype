@@ -46,6 +46,7 @@ abort () {
 
 status () {
   { set +x; } &>/dev/null
+  echo ">> STATUS"
   ls -d rubygem-*/ \
     | cut -d'/' -f1 \
     | xargs -i bash -c "echo -ne '\n> '; cd '{}' && pwd && gitl -2 --oneline | cat || exit 255"
@@ -106,6 +107,7 @@ git clone https://github.com/rails/rails.git
 bash -c "
   set -xe
   cd rails
+  git checkout main
   git pull
   [[ -r rails ]] || ln -s . rails
   ls -d a*/ r*/ | xargs -i bash -c \"echo; cd '{}'; pwd; set -x; [[ -r rails ]] || ln -s .. rails\"

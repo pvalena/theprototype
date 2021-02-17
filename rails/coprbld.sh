@@ -40,7 +40,7 @@ set +e
 } || W=15
 
 [[ -n "$1" ]] && {
-  PRE="$1"
+  CRR="$1"
   shift
   :
 } || CRR='ruby-on-rails'
@@ -69,7 +69,7 @@ while read x; do
   }
 
   # Do not wait on the last run
-  [[ "$x" == 'activestorage' ]] || sleep "$W"
+  [[ "$x" == 'actioncable' ]] || sleep "$W"
 
 done <<EOLX
 rails
