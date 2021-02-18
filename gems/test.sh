@@ -83,7 +83,7 @@ gp='rubygem-'
 COPR_URL="https://download.copr.fedorainfracloud.org/results/$me/"
 
 tb='copr-dist'
-rm="${tb}/master"
+rm="${tb}/rawhide"
 bl='result/build.log'
 
 MYD="`readlink -e "$(dirname "$0")/.."`"
@@ -224,7 +224,7 @@ grep "^$gp" <<< "$p" &>/dev/null || abort "Invalid prefix in '$p', expected: $gp
 
   # Pull request from dist-git
   [[ -z "$pr" ]] || {
-    gitc master || abort 'Failed to checkout master'
+    gitc rawhide || abort 'Failed to checkout rawhide'
     gitb -D "pr$pr" || abort "Failed to delete branch pr$pr"
     git fetch origin "refs/pull/$pr/head:pr$pr" || abort "Failed to fetch: origin 'refs/pull/$pr/head:pr$pr'"
     gitc "pr$pr"

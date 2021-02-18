@@ -87,7 +87,7 @@ while i=$(( $i + 1 )); do
     debug "\n\$PKG = '$PKG'"
 
     # Double-Check for DEAD
-    URL="${SRC_FPO_RPMS_GIT}${PKG}/raw/master/f/dead.package"
+    URL="${SRC_FPO_RPMS_GIT}${PKG}/raw/rawhide/f/dead.package"
     sleep "$WAIT"
     DEAD="$( curl -sI "${URL}" )" || {
       skip "$PKG" "curl -I (DEAD)" "$LONG_WAIT"

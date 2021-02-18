@@ -84,7 +84,7 @@ TOKEN="`cat ~/.config/fedora`"
   BRANCH_TO="$1"
   shift
   :
-} || BRANCH_TO='master'
+} || BRANCH_TO='rawhide'
 
 # MAIN
 getpr="$(dirname "$0")/get_pr.sh"

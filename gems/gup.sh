@@ -122,7 +122,7 @@ ask () {
 	shift 2
 	:
 } || {
-  REL='master'
+  REL='rawhide'
 }
 
 [[ "$1" == "-j" ]] && {

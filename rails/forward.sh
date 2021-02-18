@@ -42,8 +42,8 @@ for x in railties rails activesupport activestorage activerecord activejob actio
   done
 
   git stash &>/dev/null
-  git checkout master &>/dev/null
-  [[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
+  git checkout rawhide &>/dev/null
+  [[ "`git rev-parse --abbrev-ref HEAD`" == 'rawhide' ]] || die 'Failed to checkout rawhide'
   git status -uno | grep -q '^nothing to commit ' || die 'Uncommited changes'
   git pull &>/dev/null || die 'Pull failed'
   git status -uno | grep -q '^Your branch is up to date' || die 'Failed to fast-forward'
