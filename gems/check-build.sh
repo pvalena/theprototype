@@ -46,7 +46,9 @@ abort () {
 x=pvalena
 d="redhat.com"
 s="lpcs@lpcsn:/`pwd | cut -d'/' -f7-`"
-f=34
+f=35
+or=origin
+ma=rawhide
 
 myd="$(readlink -e "$0")"
 myd="`dirname "$(dirname "$myd")"`"
@@ -106,14 +108,14 @@ read -r -d '' MAIN << EOM
 
   $gsgr '^nothing to commit ' || next 'Uncomitted changes'
 
-  $gsgr '^On branch master$' || {
-    git checkout master &>/dev/null || next 'Failed to checkout'
-    $gsgr '^On branch master$' || next 'Wrong branch'
+  $gsgr "^On branch ${ma}$" || {
+    git checkout "${ma}" &>/dev/null || next 'Failed to checkout'
+    $gsgr "^On branch ${ma}$" || next 'Wrong branch'
   }
 
-  git rebase origin/master &>/dev/null || next 'Failed to rebase'
+  git rebase "origin/${ma}" &>/dev/null || next 'Failed to rebase'
   #  | grep -q '^Successfully rebased and updated'
-  $gsgr "^Your branch is up to date with 'origin/master'" || next 'Outdated branch'
+  $gsgr "^Your branch is up to date with 'origin/${ma}'" || next 'Outdated branch'
 
   mer=
   w='[\s \.,\-\!]*'
@@ -128,8 +130,8 @@ read -r -d '' MAIN << EOM
       sleep 5
 
       git fetch origin &>/dev/null || $fail
-      git rebase origin/master &>/dev/null || next 'Failed to rebase after merge'
-      $gsgr "^Your branch is up to date with 'origin/master'" || next 'Outdated branch after merge'
+      git rebase "origin/${ma}" &>/dev/null || next 'Failed to rebase after merge'
+      $gsgr "^Your branch is up to date with 'origin/${ma}'" || next 'Outdated branch after merge'
 
       mer="\$i"
       break
@@ -138,6 +140,8 @@ read -r -d '' MAIN << EOM
       info 'Update pending, no LGTM yet.'
     }
   done
+
+  ls *.spec &>/dev/null || $fail
 
   $silt
   # version-release
@@ -157,7 +161,7 @@ read -r -d '' MAIN << EOM
   e="\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f3 | rev)"
 
   # commit email
-  a="\$(git log -1 origin/master | head -2 | tail -n 1 | rev | cut -d' ' -f1 | rev)"
+  a="\$(git log -1 "origin/${ma}" | head -2 | tail -n 1 | rev | cut -d' ' -f1 | rev)"
 
   [[ "\$e" == "\$a" ]] || {
     [[ -z "\$mer" ]] || $fail
@@ -186,7 +190,7 @@ read -r -d '' MAIN << EOM
   }
 
   # commit hash
-  c="\$(git log -1 origin/master | head -1 | cut -d' ' -f2)"
+  c="\$(git log -1 "origin/${ma}" | head -1 | cut -d' ' -f2)"
 
   # add fork
   {
@@ -227,7 +231,7 @@ read -r -d '' MAIN << EOM
       -name '*.gem' \
     | xargs -rI'[]' cp -v "[]" .
 
-  $bld -b master -r -s || exit 255
+  $bld -b "${ma}" -r -s || exit 255
 
   echo -e "\n>> Update suceeded"
 EOM
