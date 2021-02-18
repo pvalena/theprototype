@@ -41,7 +41,7 @@ d=lss
 } || {
   r="`gitb | grep '^*' | cut -d' ' -f2-`"
   grep -q '^rebase-' <<< "$r" && r="`cut -d'-' -f2- <<< "$r"`"
-  grep -q '^rebase$' <<< "$r" && r="master"
+  grep -q '^rebase$' <<< "$r" && r="rawhide"
 }
 
 [[ -z "$1" ]] || die "Unkown arg: $1"
@@ -57,7 +57,7 @@ d=lss
     } || {
       s=
       c=1
-      for t in "$r" '' 'master' 'f33'; do
+      for t in "$r" '' 'rawhide' 'f33'; do
         srpm "$t" && {
           s="$t"
           c=0

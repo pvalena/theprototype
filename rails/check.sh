@@ -2,7 +2,7 @@
 # Check for update commit with VERSION
 #
 # ./check.sh VERSION [BRANCH]
-#   Optionally input 'f*' as BRANCH as a first arg. Default is 'master'.
+#   Optionally input 'f*' as BRANCH as a first arg. Default is 'rawhide'.
 #   Mandatory is VERSION which will be checked for.
 #
 #   Uses current working directory.
@@ -14,7 +14,7 @@ die () {
 }
 
 [[ -n "$1" ]] && { V="$1" ; shift ; } || die "Version missing"
-[[ -n "$1" ]] && { D="$1" ; shift ; } || D="master"
+[[ -n "$1" ]] && { D="$1" ; shift ; } || D="rawhide"
 
 my="$(readlink -e "`pwd`")"
 
@@ -35,8 +35,8 @@ for x in railties rails activesupport activestorage activerecord activejob actio
 
   ## Use forward.sh instead ##
   #git stash &>/dev/null
-  #git checkout master &>/dev/null
-  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
+  #git checkout rawhide &>/dev/null
+  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'rawhide' ]] || die 'Failed to checkout rawhide'
   #git status | grep -q 'nothing to commit, working directory clean' || die 'Uncommited changes'
   #git pull &>/dev/null || die 'Pull failed'
   #git status | grep -q 'Your branch is up-to-date' || die 'Failed to fast-forward'

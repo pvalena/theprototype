@@ -233,7 +233,7 @@ echo -e "${sep}\n"
 pr="$($gpr "$p")"
 
 [[ -z "$pr" ]] && {
-  echo "You can create PR manualy: https://src.fedoraproject.org/fork/$me/rpms/${p}/diff/master..rebase"
+  echo "You can create PR manualy: https://src.fedoraproject.org/fork/$me/rpms/${p}/diff/rawhide..rebase"
   # gistf "$o"
   :
 } || {

@@ -28,7 +28,7 @@ pad=50
   BR="$2"
   shift 2
   :
-} || BR=master
+} || BR=rawhide
 
 [[ -z "BR" ]] && die 'Invalid branch'
 

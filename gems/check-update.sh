@@ -97,7 +97,7 @@ read -r -d '' MAIN << EOM
 
   $gsgr '^Your branch is behind' && {
     $gsgr '^On branch rebase$' && git rebase "$x/rebase"
-    $gsgr '^On branch master$' && git rebase origin/master
+    $gsgr '^On branch rawhide$' && git rebase origin/rawhide
   }
 
   #$gsgr '^Your branch is behind' && next 'Branch is behind'
@@ -121,7 +121,7 @@ read -r -d '' MAIN << EOM
   }
 
   [[ -z "$NEW" ]] || {
-    git rebase origin/master &>/dev/null || next 'Failed to rebase'
+    git rebase origin/rawhide &>/dev/null || next 'Failed to rebase'
     #  | grep -q '^Successfully rebased and updated'
 
     $gsgr '^Changes not staged for commit' && next 'Unstaged changes'
