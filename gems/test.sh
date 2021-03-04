@@ -74,8 +74,6 @@ srpm () {
 
 
 ## CONSTANTS
-rel='34'
-
 me="pvalena"
 mc="rubygems"
 gp='rubygem-'
@@ -304,7 +302,7 @@ grep -q '^Executing(%check)' "$bl" && {
 
 section 'INSTALL'
 mar=''
-x="$(find result -name "*.fc${rel}.noarch.rpm" -o -name "*.fc${rel}.x86_64.rpm")"
+x="$(find result -name "*.fc*.noarch.rpm" -o -name "*.fc*.x86_64.rpm")"
 [[ -n "$x" ]] && {
   mck -i $x || E="Installation `fail "$x"`"
   :
