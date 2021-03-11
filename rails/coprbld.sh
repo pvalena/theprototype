@@ -62,7 +62,8 @@ while read x; do
 
   $CRB "$CRR" && {
     touch .built
-    git push
+    #git checkout rebase && \
+    #git push
     :
   } || {
     [[ -n "$BREAK" ]] && break
