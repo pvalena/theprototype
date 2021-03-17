@@ -8,6 +8,7 @@ stderr=/dev/stderr
 d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
 [[ "$1" == '-d' ]] && set -x && shift
+[[ "$1" == '-n' ]] && { NEW=y; shift; } || NEW=
 [[ "$1" == '-r' ]] && {
   RETRY="$2"
   grep -qE "^[0-9]+$" <<< "$RETRY"
@@ -42,11 +43,13 @@ x="${2}"
 [[ -n "$x" ]] || x='fedora-rawhide-x86_64'
 
 l="`readlink -f "../copr-r8-${n}"`"
-# don't
-# mkdir -p "$l"
-[[ -n "$l" && -d "$l" ]] || {
-  echo "Error: log directory '$l' does not exist" >&2
-  exit 1
+[[ -d "$l" ]] || {
+  [[ -n "$NEW" ]] && mkdir -p "$l"
+
+  [[ -d "$l" ]] || {
+    echo "Error: log directory '$l' does not exist" >&2
+    exit 1
+  }
 }
 
 ls *.src.rpm &>/dev/null || {
