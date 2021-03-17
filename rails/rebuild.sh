@@ -45,8 +45,9 @@ TT=18
 # ARGS
 
 [[ '-c' == "$1" ]] && { C="$1" ; shift ; } || C=
+[[ '-f' == "$1" ]] && { F="$1" ; shift ; } || F=
 [[ '-l' == "$1" ]] && { L="$1" ; shift ; } || L=
-[[ '-s' == "$1" ]] && { N="$1" ; shift ; } || N=
+[[ '-s' == "$1" ]] && { S="$1" ; shift ; } || S=
 [[ '-y' == "$1" ]] && { Y="$1" ; shift ; } || Y=
 
 TG="$1"
@@ -68,7 +69,7 @@ FX="$(cut -d'-' -f1 <<< "$TG" | grep -E 'f[0-9]*' | cut -d'f' -f2- | grep -E '^[
 clear
 set -xe
 
-[[ -n "$N" ]] || {
+[[ -n "$S" ]] || {
   : ">>> Remove boostrap folders?"
   delim
   for a in $BS; do
@@ -85,7 +86,7 @@ set -xe
     : ">>> Checkout '${DB}' and rebase onto '${SB}'?"
     delim
 
-    ls -d rubygem-*/ | xargs -n1 -i bash -c "echo; set -x; cd {} || exit 255; [[ -r .continue || -r .skip ]] && exit 0; git checkout '`cut -d'/' -f2- <<< "${DB}"`' || { git checkout -t '${DB}' || exit 255; }; git stash; ${fetch} git reset --hard '${DB}' || exit 255 ; git rebase '${SB}' || exit 255; touch .continue"
+    ls -d rubygem-*/ | xargs -n1 -i bash -c "echo; set -x; cd {} || exit 255; [[ -r .continue || -r .skip ]] && exit 0; git checkout '`cut -d'/' -f2- <<< "${DB}"`' || { git checkout -t '${DB}' || exit 255; }; git stash; ${fetch} git reset --hard '${DB}' || exit 255 ; git rebase '${SB}' || exit 255; touch .continue; rm .built ||:"
     delim
   }
 
@@ -113,7 +114,7 @@ timeout 3 koji wait-repo "$TG"
 [[ $? -eq 124 ]] || die "Repo not available: $TG"
 
 : ">>> Run builds"
-xargs -n1 -i bash -c "echo; set -x; [[ -d 'rubygem-{}' ]] || exit 255 ; cd 'rubygem-{}' || exit 255; [[ -r .skip ]] && exit 0 ; git fetch || exit 255 ; git status | grep -q \"Your branch is up to date with '${DB}'.\" && exit 0 ; git status -uno | grep -q \"Your branch is ahead of '${DB}' by 1 commit.\" || exit 255 ; for z in {1..10}; do fedpkg scratch-build --srpm --target '$TG' && { [[ -z '$L' ]] || exit 0; } && fedpkg new-sources \$(cut -d'(' -f2 < sources | cut -d')' -f1) && { fedpkg push || exit 255 ; for x in {1..10}; do fedpkg build --target '$TG' && { rm .continue; P=\"\$(cut -d'-' -f1 <<< '{}')\"; [[ 'bs' == \"\$(cut -d'-' -f2 <<< '{}')\" ]] && B='~bootstrap' || B=''; koji wait-repo --timeout=30 '${TG}' --build=\"rubygem-\$P-\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f1 | rev | sed -e 's/[0-9]*://').fc${FX}\$B\" ; exit 0; } ; sleep 600 ; done ; exit 255; } ; sleep 600; done ; exit 255" <<EOLX
+xargs -n1 -i bash -c "echo; set -x; [[ -d 'rubygem-{}' ]] || exit 255 ; cd 'rubygem-{}' || exit 255; [[ -r .skip || -r .built ]] && exit 0 ; git fetch || exit 255 ; [[ -n '$F' ]] || { git status | grep -q \"Your branch is up to date with '${DB}'.\" && exit 0 ; git status -uno | grep -q \"Your branch is ahead of '${DB}' by 1 commit.\" || exit 255 ; } ; for z in {1..10}; do [[ -n '$F' ]] || fedpkg scratch-build --srpm --target '$TG' && { [[ -z '$L' ]] || exit 0; } && fedpkg new-sources \$(cut -d'(' -f2 < sources | cut -d')' -f1) && { fedpkg push || exit 255 ; for x in {1..10}; do fedpkg build --target '$TG' && { rm .continue; touch .built; P=\"\$(cut -d'-' -f1 <<< '{}')\"; [[ 'bs' == \"\$(cut -d'-' -f2 <<< '{}')\" ]] && B='~bootstrap' || B=''; koji wait-repo --timeout=30 '${TG}' --build=\"rubygem-\$P-\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f1 | rev | sed -e 's/[0-9]*://').fc${FX}\$B\" ; exit 0; } ; sleep 600 ; done ; exit 255; } ; sleep 600; done ; exit 255" <<EOLX
 activesupport
 activejob
 activemodel-bs
