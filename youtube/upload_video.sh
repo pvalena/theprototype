@@ -9,7 +9,7 @@
 #   --pretend   output what would be run
 #
 # Environment variables:
-#   KEYWORDS
+#   TAGS
 #   PRIVACYSTATUS
 #   CATEGORY
 #
@@ -19,9 +19,11 @@
 # Author:
 #   pvalena@redhat.com
 #
+#
 
 # Nothing should fail up until ARGS
 set -e
+PROG=youtube-upload/bin/youtube-upload
 
 ## HELPERS ##
 abort () {
@@ -41,12 +43,13 @@ usage () {
 
 ## CHECKS ##
 bash -n "$0" || abort 'Syntax'
-python2 --version &>/dev/null || abort '`python2` needed'
+#python2 --version &>/dev/null || abort '`python2` needed'
+[[ -x "$PROG" ]]
 
 ## VARS ##
-KEYWORDS="${KEYWORDS:-devconf.cz}"
-PRIVACYSTATUS="${PRIVACYSTATUS:-unlisted}"
-CATEGORY="${CATEGORY:-28}"
+TAGS="${TAGS:-devconf.cz}"
+PRIVACYSTATUS="${PRIVACYSTATUS:-private}"
+CATEGORY="${CATEGORY:-Science & Technology}"
 
 ## INTERNAL ##
 UPLOAD=y
@@ -70,13 +73,45 @@ TITLE="$1"; shift
 DESC="$1"; shift
 [[ -n "$DESC" ]] || abort "Empty Description"
 
+LIST="$1"; shift
+[[ -n "$LIST" ]] || abort "Empty Playlist"
 
 ## RUN ##
+# Using the new app
+[[ -n "$UPLOAD" ]] && {
+  $PROG \
+      --title="$TITLE" \
+      --description="$DESC" \
+      --tags="$TAGS" \
+      --privacy="$PRIVACYSTATUS" \
+      --client-secrets="client_secrets.json" \
+      --credentials-file="credentials.json" \
+      --playlist="$LIST" \
+      --category="$CATEGORY" \
+    "$FNAME"
+  exit $?
+}
+
+set -x
+echo $PROG \
+      --title="$TITLE" \
+      --description="$DESC" \
+      --tags="$TAGS" \
+      --privacy="$PRIVACYSTATUS" \
+      --client-secrets="client_secrets.json" \
+      --credentials-file="credentials.json" \
+      --playlist="$LIST" \
+      --category="$CATEGORY" \
+    "$FNAME"
+
+exit 0
+
+# Obsolete script
 [[ -n "$UPLOAD" ]] && {
   python2 upload_video.py \
     --noauth_local_webserver \
-    --file="$FNAME" \
     --title="$TITLE" \
+    --file="$FNAME" \
     --description="$DESC" \
     --keywords="$KEYWORDS" \
     --privacyStatus="$PRIVACYSTATUS" \

@@ -1,16 +1,38 @@
 #!/usr/bin/ruby
 #
-# ./run.rb events.csv links.csv [video_directory1, video_dir2 ...]
+# ./run.rb [options] events.csv links.csv [video_directory1, video_dir2 ...]
 #
-#   CSVs are downloaded from sched, exported/converted via google sheets
+#   CSVs can be downloaded from sched, exported/converted to csv.
+#   You also need to edit the variables in the class Upload (between the # lines).
 #
 #   events.csv
 #     - list of talks with event_key, title, description...
 #     - original name f.e. devconfcz2020a-event-list-2020-02-26-14-45-16
+#     - remove the description lines with anything other than talks (keep the first line)
 #
 #   links.csv
 #     - list of titles and links
 #     - original name f.e. session-links-devconfcz2020a-2020-02-26
+#
+#   done.txt
+#     - expected to contain IDs to skip
+#
+#   Options
+#     - In alphabetical order!
+#
+#       -c    check inputs consistency and quit
+#               helpful to check the created descriptions
+#               or to check for titles that are too long.
+#
+#       -d    debug
+#
+#       -s    silent; do not write out what is done
+#
+#   Examples:
+#     - Print out the ID, Title and Descriptions of talks from input files.
+#       ./run.rb -c -d DC_2021_events.csv DC_2021_links.csv \
+#       "/run/media/lpcs/Seagate Expansion Drive/Media/DevConfCZ_2021-processed/test"
+#
 #
 
 require 'csv'
@@ -19,43 +41,50 @@ require 'sanitize'
 
 begin
   require 'ap'
-  alias_method :ap, :pp
+  alias :pp :ap
 rescue LoadError
 end
 
 class Upload
+
+######################################
   FMS = %w{ mpg mp4 mpeg mkv }
   SLEEP = 15
   UPL_SCR = 'upload_video.sh'
   DONEFILE = 'done.txt'
 
-  SUFFIX = ' - DevConf.CZ 2020'
-  FOOTER = <<EOF
+  ALLOW = ['Presentation', 'Keynote', 'Workshop', 'Talk', 'Meetup']
 
---
-Recordings of talks at DevConf are a community effort. Unfortunately not everything works perfectly every time. If you're interested in helping us improve, let us know.
+  SUFFIX = ' - DevConf.CZ 2021'
+  LIST = 'DevConfCZ 2021'
+  FOOTER = <<EOF
 EOF
+#--
+#Recordings of talks at DevConf are a community effort. Unfortunately not everything works perfectly every time. If you're interested in helping us #improve, let us know.
+######################################
 
   include LocalExecute
+
+  attr_accessor :onlycheck
 
   def self.start argv
     me = self.new argv
     me.check
-    me.run unless @onlycheck
+    me.run unless me.onlycheck
     me
   end
 
   def initialize argv
     @ups = File.join __dir__, UPL_SCR
     unless !@ups.nil? && File.readable?(@ups)
-      abort("Could not locate upload_script: #{@ups}")
+      error("Could not locate upload_script: #{@ups}")
     end
+
+    @onlycheck = argv.first == '-c'
+    argv.shift if @onlycheck
 
     @debug = argv.first == '-d'
     argv.shift if @debug
-
-    @onlycheck = argv.first == '-o'
-    argv.shift if @onlycheck
 
     @silent = argv.first == '-s'
     argv.shift if @silent
@@ -79,12 +108,12 @@ EOF
     @events = @events.select {
       |e|
       unless x = \
-        ['Presentation'].include?(event(e, 'event_subtype')) \
+        ALLOW.include?(event(e, 'event_subtype')) \
           && \
         event(e, 'active') == 'Y'
         verb "Rejected: " + event(e, 'event_key', 'active', 'event_subtype', 'name').join(' | ')
       end
-      
+
       x
     }
 
@@ -97,20 +126,23 @@ EOF
         |e|
         puts event(e, 'event_key', 'name').join(' | ')
       }
-      abort "Error: The above talks have titles too long."
+      error "The above talks have titles too long."
     end
 
     if @onlycheck
       @events = @events.each {
         |e|
-        get_text event(e, 'event_key')
+        id = event(e, 'event_key')
+        get_text id
       }
     end
   end
 
   def run
+    error 'this should not run now' if @onlycheck
+
     @dirs.each do |dr|
-      File.directory?(dr) || abort("Is not a directory: #{dr}")
+      File.directory?(dr) || error("Is not a directory: #{dr}")
 
       puts "\n>> Directory: #{dr}"
 
@@ -118,12 +150,12 @@ EOF
         vid = File.join dr, vid
 
         ext = File.extname(vid)[1..]
-      
+
         unless FMS.include? ext
           puts "Ignoring file: #{vid}"
           next
         end
-        File.readable?(vid) || abort("File not readable: #{vid}")
+        File.readable?(vid) || error("File not readable: #{vid}")
         unless @silent
           puts
           verb "Video file: #{File.basename(vid)}"
@@ -136,19 +168,20 @@ EOF
 
   def upload vid, ext
     ename = File.basename vid, ".#{ext}"
+    id = ename.split.first
 
-    if is_done(ename)
+    if is_done(id)
       puts "Video already uploaded, skipping." unless @silent
       return
     end
 
     begin
-      title, description = get_text ename
+      title, description = get_text id
     rescue Exception
       return
     end
 
-    verb "Uploading video, ID: #{ename}" if @silent
+    verb "Uploading video, ID: #{id}" if @silent
 
     out, err = ['', '']
     suc = local_execute \
@@ -156,7 +189,8 @@ EOF
         vid,
         title,
         description,
-      ], 
+        LIST
+      ],
       out: out,
       err: err,
       debug: @debug
@@ -164,17 +198,17 @@ EOF
     puts out unless out.empty?
     puts err unless err.empty?
 
-    suc = false unless out.include?('was successfully uploaded')
-    suc || abort("> FAILED")
+    #suc = false unless out.include?('was successfully uploaded')
+    suc || error("Upload FAILED.")
 
     verb 'OK' + $/
-    set_done ename
+    set_done id
     sleep SLEEP
-  end  
+  end
 
   def load_csv file
-    file.nil? && abort("Arg missing.")
-    File.readable?(file) || abort("Could not read: #{file}")
+    file.nil? && error("Arg missing.")
+    File.readable?(file) || error("Could not read: #{file}")
     CSV.read(file)
   end
 
@@ -182,7 +216,7 @@ EOF
     x = keys.map {
       |key|
         i = whr[key]
-        i.nil? && abort("Key not found: #{key}")
+        i.nil? && error("Key not found: #{key}")
         line[i]
       }
     x.one? && x = x.first
@@ -190,18 +224,18 @@ EOF
   end
 
   def event e, *keys
-    acc @events_keys, e, *keys 
+    acc @events_keys, e, *keys
   end
   def link l, *keys
-    acc @links_keys, l, *keys 
+    acc @links_keys, l, *keys
   end
 
-  def get_text ename
+  def get_text id
     eve = @events.detect {
       |e|
-      event(e, 'event_key') == ename
+      event(e, 'event_key') == id
     }
-    eve.nil? && abort("Error: Event for video '#{ename}' not found.")
+    eve.nil? && error("Event for video '#{id}' not found.")
 
     name = event(eve, 'name')
     desc = event(eve, 'description')
@@ -209,9 +243,9 @@ EOF
 
     lnk = @links.detect {
       |l|
-      link(l, 'name') == name
+      name.start_with? link(l, 'name')
     }
-    lnk.nil? && abort("Error: Link for video not found.")
+    lnk.nil? && error("Link for video '#{name}' not found.")
     shortlink = link(lnk, 'shortlink')
 
     title = sanitize(name + SUFFIX)
@@ -220,13 +254,13 @@ Speakers: #{speakers}
 
 #{desc}
 
-[ #{shortlink} ]
+Schedule: #{shortlink}
 #{FOOTER}
 EOD
 
     if @debug
-      puts " ================================================", ""
-      verb "ID: #{ename}"
+      puts "================================================", ""
+      verb "ID: #{id}"
       verb "Title: #{title}"
       verb "Description:"
       #description.each_line{ |l| puts (" "*4 + l) }
@@ -235,7 +269,7 @@ EOD
 
     [title, description]
   end
-  
+
   def sanitize x
     Sanitize.fragment \
       x.gsub("<br>", $/)
@@ -256,6 +290,11 @@ EOD
 
   def set_done id
     File.write(DONEFILE, id + $/, mode: 'a')
+  end
+
+  def error m
+      puts "================================================", ""
+      abort("Error: #{m}")
   end
 end
 

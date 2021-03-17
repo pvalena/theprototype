@@ -2,11 +2,12 @@
 
 while date -Isec; do
 
-  ./run.rb -s 'DC_2020_events.csv' 'DC_2020_links.csv' /mnt/DC_upload/Media/DevConf_2020-processed/DAY_3/*/ 2>&1 \
+  ./run.rb -s 'DC_2021_events.csv' 'DC_2021_links.csv' "/run/media/lpcs/Seagate Expansion Drive/Media/DevConfCZ_2021-processed/zasilkovna"
+   2>&1 \
     | tee -a "logs/upload_`date -Ins`.log"
 
   echo 'sleeping...'
-  sleep 24h
+  sleep 12h
   echo
 done
 
