@@ -27,6 +27,8 @@ zsh -n "$0"
 
 [[ "$1" == "-i" ]] && {
   I="$2"
+  timeout 1 sleep "$I" || R=$?
+  [[ $R -eq 124 ]] || exit 4
   shift 2
   :
 } || I=1
@@ -36,7 +38,7 @@ zsh -n "$0"
   exec aux "${me} $DEBUG -i $I"
 }
 
-[[ -z "$1" ]] || exit 2
+[[ "${1:0:1}" == '-' ]] && exit 2
 
 x=pvalena
 f="$(readlink -f cpr/update_failed.txt)"
@@ -143,7 +145,7 @@ read -r -d '' MAIN << EOM
 
   cd ..
   p="\$(cut -d'-' -f2- <<< '{}')"
-  cpr="cpr/\${p}-update.log"
+  cpr="cpr/{}_update.log"
 
   [[ -r "\$cpr" ]] && {
     [[ \$R -eq 0 ]] && {
@@ -173,8 +175,18 @@ EOM
 
 bash -c -n "$MAIN" || exit 3
 
-ls -d rubygem-*/*.spec \
-  | cut -d'/' -f1 \
-  | sort -u \
-  | xargs -i bash -c "$MAIN" 2>&1 \
-  | tee -a "cpr/update_`date -I`.log"
+[[ -z "$1" ]] && {
+  ls -d rubygem-*/*.spec \
+    | cut -d'/' -f1 \
+    | sort -u \
+    | xargs -i bash -c "$MAIN" 2>&1 \
+    | tee -a "cpr/update_`date -I`.log"
+  :
+} || {
+  ls -d "$@" \
+    | cut -d'/' -f1 \
+    | sort -u \
+    | xargs -i bash -c "$MAIN" 2>&1 \
+    | tee -a "cpr/update_`date -I`.log"
+}
+
