@@ -20,7 +20,7 @@ my="$(readlink -e "`pwd`")"
 
 [[ "$my" && -d "$my" ]] || die "Invalid working dir: '$my' in `pwd`"
 
-for x in railties rails activesupport activestorage activerecord activejob actionview actionpack actionmailer actioncable activemodel; do
+while read x; do
   G="rubygem-$x"
 
   [[ -d "$G" ]] || {
@@ -35,8 +35,8 @@ for x in railties rails activesupport activestorage activerecord activejob actio
 
   ## Use forward.sh instead ##
   #git stash &>/dev/null
-  #git checkout rawhide &>/dev/null
-  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'rawhide' ]] || die 'Failed to checkout rawhide'
+  #git checkout master &>/dev/null
+  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
   #git status | grep -q 'nothing to commit, working directory clean' || die 'Uncommited changes'
   #git pull &>/dev/null || die 'Pull failed'
   #git status | grep -q 'Your branch is up-to-date' || die 'Failed to fast-forward'
@@ -70,5 +70,21 @@ for x in railties rails activesupport activestorage activerecord activejob actio
   cd "$my" || die "Failed to cd to '$my'"
 
 done
+
+done <<EOLX
+rails
+activesupport
+activejob
+activemodel
+railties
+actionview
+actionpack
+activestorage
+activerecord
+actionmailer
+actionmailbox
+actiontext
+actioncable
+EOLX
 
 echo
