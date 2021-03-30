@@ -83,7 +83,7 @@ stx () { [[ -z "$DEB" ]] || echo "set -x" ; }
 err () { `stx` ; [[ -n "$IGN" && -z "$2" ]] || printf "!! $x: $1\n" >&2 ; }
 die () { `stx` ; [[ -z "$2" ]] && { git status || : ; } || { usage n | cat ; } ; err "$1" f ; exit 1 ; }
 deb () { [[ -z "$DEB" ]] || echo -e " # $x : $@" ; }
-nam () { x="`grep -q '^$pre' <<< "$1" && cut -d'-' -f2- <<< "$1" || echo "$1"`" ; }
+nam () { [[ -z "$pre" ]] && x="$1" || x="`grep -q '^$pre' <<< "$1" && cut -d'-' -f2- <<< "$1" || echo "$1"`" ; }
 
 out () {
   [[ "$1" ]] || out ' '
@@ -145,7 +145,9 @@ myd="$(readlink -e "`pwd`")"
 T=
 [[ -z "$TG" ]] || { T="gemspec" ; pre='rubygem-' ; }
 [[ -z "$p" ]] || { T="" ; pre='???-' ; }          # <<< [placeholder]
-[[ -n "$T" ]] || die 'No package type specified'
+[[ -n "$T" ]] || {
+  pre=''
+}
 
 # Set w1,w2,w3...
 for i in {1..100}; do
@@ -179,7 +181,7 @@ deb "fst = '$fst'"
 # Padding for T
 Tp=$(printf "%-${#T}s" -)
 
-out 'package' 'specfile' "$T"         'licensee' 'cucos license check' 'licensecheck' 'oscryptocatcher' ; put
+out 'package' 'specfile' "${T:- }"    'licensee' 'cucos license check' 'licensecheck' 'oscryptocatcher' ; put
 out '-------' '--------' "${Tp// /-}" '--------' '-------------------' '------------' '---------------' ; put
 
 # For every package...
@@ -240,7 +242,7 @@ while read z; do
   # Type: Gem
   [[ -z "$TG" ]] || {
     y="`cut -d'-' -f2- <<< "$x"`"
-    g="`ls ${y}-*.gem 2>/dev/null`"
+    g="`ls ${y}-*.gem 2>/dev/null`" || { err "$LINENO: gem file '$g' missing(not a rubygem?)" ; continue ; }
     [[ -n "$g" && -r "$g" ]] || { err "$LINENO: gem file '$g' missing(not a rubygem?)" ; continue ; }
 
     b="`basename -s '.gem' "$g"`"
@@ -271,8 +273,18 @@ while read z; do
     out "`cut -d' ' -f2- <<< "$JGS"`"
   }
 
+  # Type: None
+  [[ -n "$T" ]] || {
+    y="$(rhpkg prep 2>&1)" || die "$LINENO: failed to prep:\n $d"
+    y="$(echo "$y" | grep '^+ cd ' | tail -n +3 | head -1)"
+
+    [[ -n "$y" ]] || die "$LINENO: No 'cd' entry found in prep output."
+
+    d="$(echo "$y" | cut -d' ' -f3-)"
+  }
+
   # type: ???                                 # <<< [placeholder] \
-  [[ "$p" ]] && {
+  [[ -n "$p" ]] && {
     # YOU need to implement this
     die NYI
     p="`ls ${x}-*.??? 2>/dev/null`"
@@ -327,7 +339,7 @@ while read z; do
   JSF=
   while read j; do JSF="$JSF, $j" ; done < <(
     licensecheck -c '.*' -i '' -l 200 -m -r * | tr -s '\t' ' ' | grep -vE ' (UNKNOWN|GENERATED FILE)$' \
-      | xargs -n1 -i bash -c "c=0 ; while [[ \$c -lt 1000 ]]; do let 'c += 1' ; [[ -r \"\$(cut -d' ' -f-\${c} <<< '{}')\" ]] && { let 'c += 1' ; cut -d' ' -f\${c}- <<< '{}' ; exit 0 ; } ; done ; echo 'NOPE {}' >&2 ; exit 1" \
+      | xargs -ri bash -c "c=0 ; while [[ \$c -lt 1000 ]]; do let 'c += 1' ; [[ -r \"\$(cut -d' ' -f-\${c} <<< '{}')\" ]] && { let 'c += 1' ; cut -d' ' -f\${c}- <<< '{}' ; exit 0 ; } ; done ; echo 'NOPE {}' >&2 ; exit 1" \
       | sort -u
   )
   out "`cut -d' ' -f2- <<< "$JSF"`"
