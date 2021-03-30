@@ -15,7 +15,7 @@ f2='result/build.log'
 l='--release'
 
 me=pvalena
-
+stderr=/dev/stderr
 
 srpm () {
   local x=
@@ -124,9 +124,10 @@ cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $G"
 
 # Standard run
 date -Isec
+[[ -w "$stderr" ]] && debug="tee -a $stderr" || debug=cat
 
 bash -c "${cmd}" 2>&1 \
-  | tee -a /dev/stderr \
+  | $debug \
   | grep 'buildArch' \
   | grep -E '(FAILED|closed)' \
   | tr -s ' ' \
