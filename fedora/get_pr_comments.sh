@@ -13,7 +13,7 @@ com="${myd}/get_pr_common.sh"
   FROM="$1"
   shift
   :
-} || FROM="pvalena vondruch jaruga decathorpe"
+} || FROM="pvalena vondruch jaruga decathorpe ilgrad"
 
 sel=""
 for n in ${FROM}; do
