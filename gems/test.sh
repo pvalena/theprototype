@@ -3,7 +3,7 @@
 set -e
 bash -n "$0"
 
-### REPORTING START ###
+### REPORTING START
 {
 
 ## METHODS
@@ -44,11 +44,12 @@ abort () {
   exit 1
 }
 
+# Mock builds #
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
 msr="${v}-n --isolation=nspawn --result=./result"
 mar='--bootstrap-chroot'
-mrr='fedora-rawhide-'
+mrr=''
 mrn=1
 mrs='-x86_64'
 mck () {
@@ -75,8 +76,6 @@ srpm () {
 
 ## CONSTANTS
 me="pvalena"
-mc="rubygems"
-gp='rubygem-'
 
 COPR_URL="https://download.copr.fedorainfracloud.org/results/$me/"
 
@@ -87,6 +86,14 @@ bl='result/build.log'
 MYD="`readlink -e "$(dirname "$0")/.."`"
 [[ -d "$MYD" ]] || abort "Could not scripts directory"
 
+
+## GLOBALS
+mc=rawhide
+gp=
+mrr='fedora-'
+
+# For koji scratch-bui,d
+kl="$me@FEDORAPROJECT\.ORG"
 
 ## ARGS
 [[ "$1" == '-b' ]] && {
@@ -106,6 +113,12 @@ MYD="`readlink -e "$(dirname "$0")/.."`"
   shift
   :
 } || FAS=
+
+[[ "$1" == '-g' ]] && {
+  mc="rubygems"
+  gp='rubygem-'
+  shift
+}
 
 [[ "$1" == '-k' ]] && {
   KJ="$2"
@@ -127,35 +140,31 @@ MYD="`readlink -e "$(dirname "$0")/.."`"
 
 [[ "$1" == '-r' ]] && {
   mrr="$2"
+  mrn=
   shift 2
-  :
-} || mrr="fedora-rubygems-"
-
-[[ "$1" == '-u' ]] && {
-  UPD="$1"
-  shift
-  :
-} || UPD=
+}
 
 [[ "$1" == '-v' ]] && {
   mc="vagrant"
-  gp="vagrant-"
+  gp="${mc}-"
   shift
-  :
 }
 
 
 ## INIT
+set +e
+set -o pipefail
+
+[[ -z "$mrn" ]] || {
+  mrr="${mrr}${mc}-"
+}
+
 [[ -n "$KJ$FAS" ]] || {
-  kl="$me@FEDORAPROJECT\.ORG"
   klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
     kinit "$kl" -l 30d -r 30d -A || abort "Failed to kinit: $kl"
     pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
   }
 }
-
-set +e
-set -o pipefail
 
 p="$1"
 [[ -n "$p" ]] && {
@@ -245,13 +254,14 @@ set -x
 
   # check for buildroot availability
   for x in {1..16}; do
-    mrn="${x}"
+    [[ -z "$mrn" ]] || mrn="${x}"
+
     mck --shell 'echo available' \
       | tee -a /dev/stderr \
       | grep -q '^available$' \
       && break
 
-    [[ $x -eq 16 ]] && abort 'No buildroot is available'
+    [[ $x -eq 16 || -z "$mrn" ]] && abort 'No buildroot is available'
   done
 
   section 'BUILD'
