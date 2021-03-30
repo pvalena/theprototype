@@ -47,7 +47,8 @@ abort () {
 # Mock builds #
 # mock changes it's verbosity if output is redirected
 [[ -t 1 ]] && v='' || v="-v "
-msr="${v}-n --isolation=nspawn --result=./result"
+#msr="${v}-n --isolation=nspawn --result=./result"
+msr="${v}-n --result=./result"
 mar='--bootstrap-chroot'
 mrr=''
 mrn=1
