@@ -3,11 +3,20 @@
 set -e
 bash -n "$0"
 
+## CONFIG
 me='pvalena'
+
+kpf='rubygem|vagrant'
+l='.log'
+s=".spec"
+sep="_ _ _ _"
+nl='
+'
 
 # for koji scratch-build
 kl="$me@FEDORAPROJECT\.ORG"
 
+# Directories
 myd="`dirname "$(readlink -e "$0")"`"
 gup="${myd}/gup.sh"
 tst="${myd}/test.sh"
@@ -15,6 +24,8 @@ cpr="`readlink -e "${myd}/../fedora/create_pr.sh"`"
 gpr="`readlink -e "${myd}/../fedora/get_pr.sh"`"
 hom="`readlink -e "${myd}/../../"`/"
 
+
+## METHODS
 abort () {
   echo -e "--> Error:" "$@" 1>&2
   exit 1
@@ -35,11 +46,8 @@ addlog () {
   echo -e "${1}: `gistf "$2"`" | tee -a "$o"
 }
 
-klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
-  kinit "$kl" -l 30d -r 30d -A
-  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
-}
 
+## VARS
 ARG=
 
 [[ "$1" == '-b' ]] && {
@@ -62,7 +70,7 @@ ARG=
 } || DEB=
 
 [[ "$1" == '-f' ]] && {
-  FCE="$1"
+  FCE=y
   shift
   :
 } || FCE=
@@ -73,6 +81,12 @@ ARG=
   :
 } || GST="`which gist`"
 
+[[ "$1" == '-p' ]] && {
+  pre="$2"
+  shift 2
+  :
+} || pre=
+
 [[ "$1" == '-u' ]] && {
   UPD=y
   shift
@@ -80,7 +94,7 @@ ARG=
 } || UPD=
 
 [[ -z "$1" || "$1" == '--' ]] && {
-  x="$(basename "$PWD" | grep '^rubygem\-' | cut -d'-' -f2-)"
+  x="$(basename "$PWD")"
   cd ..
   :
 } || {
@@ -94,9 +108,25 @@ ARG=
   :
 }
 
-l='.log'
-s=".spec"
-p="rubygem-${x}"
+## INIT
+# Auto-detect prefix
+[[ -z "$pre" ]] && {
+  pre="$(echo "$x" | cut -d'-' -f1 | grep -E "^(${kpf})$")"
+}
+
+[[ -n "$pre" ]] && {
+  # No validation required, at this point
+  x="$(echo "$x" | cut -d'-' -f2-)"
+}
+
+[[ -n "$pre" ]] \
+  && p="${pre}-${x}" \
+  || p="$x"
+
+[[ "$pre" == 'vagrant' ]] && {
+  x="$p"
+  ARG="${ARG} -v"
+}
 
 y="cpr/${p}_"
 u="${y}update${l}"
@@ -107,18 +137,24 @@ d="${y}gem2rpm.diff"
 g="${p}/.generated${s}"
 s="${p}/${p}${s}"
 
-sep="_ _ _ _"
-nl='
-'
-
 [[ -n "$x" ]] || abort 'Name of gem is missing.'
 [[ -d "$p" ]] || abort 'gem directory missing.'
 [[ -x "$tst" ]] || abort 'Test script not accessible.'
 [[ -x "$gup" ]] || abort 'Update script not accessible.'
 [[ -x "$cpr" ]] || abort 'CPR script not accessible.'
-[[ -d "cpr" ]] || abort '`cpr` directory missing.'
+[[ -d "`dirname "$y"`" ]] || abort 'CPR directory non-existent:' "`dirname "$y"`"
 
+[[ -n "$pre" ]] || abort "Non-prefix packages are not supported yet."
+
+
+## MAIN
 set -o pipefail
+echo "> $p :: $x :: $pre"
+
+klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+  kinit "$kl" -l 30d -r 30d -A
+  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
+}
 
 rm -f "$o"
 rm -f "$e"
@@ -155,7 +191,7 @@ rm -f "$u"
     [[ -n "$BLD" ]] || abort 'COPR Build missing'
   }
 
-  ARG="${ARG} -b $BLD -c"
+  ARG="-b $BLD -c ${ARG}"
 
   t="$(bash -c "set -e; cd '$p'; git log -1 2>/dev/null | tail -n +5 | sed -e 's/^\s*//'")"
   grep -q "^Update to " <<< "$t" || {
@@ -187,8 +223,8 @@ EOF
   }
   :
 } || {
-  [[ -n "$BLD" ]] && ARG="${ARG} -b $BLD"
-  [[ -n "$CON" ]] && ARG="${ARG} -c"
+  [[ -n "$CON" ]] && ARG="-c ${ARG}"
+  [[ -n "$BLD" ]] && ARG="-b $BLD ${ARG}"
 }
 
 set +e
@@ -206,8 +242,9 @@ bash -c "set -e; cd '$p'; gem2rpm --fetch '$x' 2>/dev/null" > "$g" && {
 
 # This is intentional to redirect stderr to "$e" file (and print to terminal), and stdout to "$o"
 # TODO: properly parse and forward args (we rely on '-u' is the last)
+#       or fix test to accept them in any order
 echo ">> Tests"
-$tst $ARG "$@" -u "$x" 2>&1 >> "$o" | tee -a "$e"
+$tst $ARG "$@" "$x" 2>&1 >> "$o" | tee -a "$e"
 R=$?
 
 [[ $R -eq 0 ]] || abort "Testing failed!"
