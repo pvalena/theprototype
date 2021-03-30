@@ -153,7 +153,7 @@ read -r -d '' MAIN << EOM
     }
 
     [[ \$R -eq 2 ]] && {
-      tail -n 3 "\$cpr" | grep -q '^\-\-\> Version is current\: ' \
+      tail -n 3 "\$cpr" | grep -q '^\-\-> Version is current\: ' \
         && R=0
     }
 
@@ -163,8 +163,8 @@ read -r -d '' MAIN << EOM
       exit 0
     }
     :
-  } || {
-    msg "Error" "Package update log not found:" "\$cpr"
+#  } || {
+#    msg "Error" "Package update log not found:" "\$cpr"
   }
 
   echo "\$O"
