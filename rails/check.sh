@@ -33,39 +33,31 @@ while read x; do
     exit 1
   }
 
-  ## Use forward.sh instead ##
-  #git stash &>/dev/null
-  #git checkout master &>/dev/null
-  #[[ "`git rev-parse --abbrev-ref HEAD`" == 'master' ]] || die 'Failed to checkout master'
-  #git status | grep -q 'nothing to commit, working directory clean' || die 'Uncommited changes'
-  #git pull &>/dev/null || die 'Pull failed'
-  #git status | grep -q 'Your branch is up-to-date' || die 'Failed to fast-forward'
+  fnd=
+  grep '^acti' <<< "$x" &>/dev/null && {
+    N="`cut -c7- <<< "$x"`"
+    N="`cut -c-6 <<< "$x"` ${N^}"
 
-    fnd=
-    grep '^acti' <<< "$x" &>/dev/null && {
-      N="`cut -c7- <<< "$x"`"
-      N="`cut -c-6 <<< "$x"` ${N^}"
+  } || N="$x"
 
-    } || N="$x"
+  N="${N^}"
 
-    N="${N^}"
+  echo -e "\n>>> $N"
 
-    echo -e "\n>>> $N"
+  T="Update to $N $V"
 
-    T="Update to $N $V"
+  git fetch &>/dev/null || die "git fetch failed"
 
-    git fetch &>/dev/null || die "git fetch failed"
+  while read z; do
+    grep "$T" <<< "$z" && fnd=y && break
+    echo "$z"
 
-    while read z; do
-      grep "$T" <<< "$z" && fnd=y && break
-      echo "$z"
+  done < <( git log --oneline -100 "origin/$D" )
 
-    done < <( git log --oneline -100 "origin/$D" )
+  [[ "$fnd" ]] || {
+    echo -e "\n !! Update commit for $x not found !!"
 
-    [[ "$fnd" ]] || {
-      echo -e "\n !! Update commit for $x not found !!"
-
-    }
+  }
 
   cd "$my" || die "Failed to cd to '$my'"
 
