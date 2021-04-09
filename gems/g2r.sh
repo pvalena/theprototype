@@ -66,8 +66,6 @@ s=
   cd "$f" || die "cd"
 
   [[ "$KEEP" ]] || rm -rf *.spec *.rpm *.gem
-  # Fetch using gem2rpm instead
-  #gem fetch "$1" || die "fetch"
   :
 } || {
   s="$1"
@@ -75,9 +73,12 @@ s=
   g="`echo "$f" | cut -d'-' -f2-`"
 }
 
-gem2rpm --fetch -o "$s" "$g" || die "spec"
+# Fetch using gem2rpm instead
+gem fetch "$g" || die "fetch"
 
 gf="`ls ${g}-*.gem`"
+
+gem2rpm -o "$s" "$gf" || die "spec"
 
 [[ -r "$gf" ]] || die "fle"
 gem unpack "$gf" || die "unpack"
