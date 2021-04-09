@@ -128,6 +128,10 @@ ARG=
   ARG="${ARG} -v"
 }
 
+[[ "$pre" == 'rubygem' ]] && {
+  ARG="${ARG} -g"
+}
+
 y="cpr/${p}_"
 u="${y}update${l}"
 e="${y}test${l}"
@@ -194,7 +198,7 @@ rm -f "$u"
   ARG="-b $BLD -c ${ARG}"
 
   t="$(bash -c "set -e; cd '$p'; git log -1 2>/dev/null | tail -n +5 | sed -e 's/^\s*//'")"
-  grep -q "^Update to " <<< "$t" || {
+  grep -qE "^Up(date|grade) to " <<< "$t" || {
     [[ -z "$FCE" ]] && abort "Malformed git log entry: $t"
   }
 
