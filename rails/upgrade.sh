@@ -98,7 +98,7 @@ set +e
   W="$2"
   shift 2
   :
-} || W=15
+} || W=30
 
 [[ -z "$1" ]] || abort "Unknown arg: '$1'."
 

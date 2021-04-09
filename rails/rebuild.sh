@@ -4,6 +4,7 @@
 #
 #   -c  Skip setting up repositories, do only bootstrap ones.
 #       This is more reliable than internal '.continue' locking mechanism.
+#   -f  Force. Force builds. No check for pending commit.
 #   -l  Only local changes (no push etc.).
 #   -s  Skip modifications (merge), run only builds.
 #
