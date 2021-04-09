@@ -44,7 +44,7 @@ d=lss
   grep -q '^rebase$' <<< "$r" && r="rawhide"
 }
 
-[[ -z "$1" ]] || die "Unkown arg: $1"
+[[ -z "$1" ]] || { echo "Unkown arg: $1" >&2; exit 1; }
 
 [[ -n "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
