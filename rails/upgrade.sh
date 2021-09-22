@@ -72,6 +72,7 @@ set +e
 } || {
   rm */.built
   rm */.prepared
+  rm */.continue
   rm */*.txz
   rm */*.src.rpm
 }
