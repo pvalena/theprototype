@@ -24,8 +24,11 @@ target="${1:-rubygems}"
 shift
 
 N="${1:-1}"
+shift
 
-cd copr-r8-$target || exit 1
+grep -E '^[0-9]+' <<< "$N" || exit 1
+
+cd "copr-r8-$target" || exit 1
 
 for n in {1..$N}; do
   echo -e "\n>>> Build missing packages (1x)"
