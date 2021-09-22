@@ -2,8 +2,16 @@
 set -e
 bash -n "$0"
 
+error () {
+  echo "Error:" "$@" >&2
+  exit 1
+}
+
 COPR_URL="https://download.copr.fedorainfracloud.org/results/pvalena/"
 stderr=/dev/stderr
+
+[[ -n "`which mock`" ]] || error "Dependency missing: mock"
+[[ -n "`which fedpkg`" ]] || error "Dependency missing: fedpkg"
 
 d=lss
 [[ "$1" == '-c' ]] && d=cat && shift
@@ -47,7 +55,7 @@ l="`readlink -f "../copr-r8-${n}"`"
   [[ -n "$NEW" ]] && mkdir -p "$l"
 
   [[ -d "$l" ]] || {
-    echo "Error: log directory '$l' does not exist" >&2
+    error "log directory '$l' does not exist"
     exit 1
   }
 }
