@@ -132,7 +132,7 @@ ARG=
   ARG="${ARG} -g"
 }
 
-y="cpr/${p}_"
+y="$(readlink -f cpr)/${p}_"
 u="${y}update${l}"
 e="${y}test${l}"
 o="${y}summary.md"
