@@ -58,6 +58,8 @@ which "$d" &>/dev/null || d=cat
 
 [[ -n "$DEBUG" ]] && DEBUG="set -x; " || DEBUG=
 
+[[ "${1:0:1}" == '-' ]] && { echo "Unkown arg: $1" >&2; exit 1; }
+
 [[ -n "$1" ]] && {
   r="$1"
   shift
