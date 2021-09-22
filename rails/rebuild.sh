@@ -1,12 +1,12 @@
 #!/usr/bin/bash
 #
-# ./rebuild.sh [-c][-n][-s] TARGET SOURCE_BRANCH DESTINATION_BRANCH
+# ./rebuild.sh [-c][-n][-s] TARGET [SOURCE_BRANCH [DESTINATION_BRANCH]]
 #
-#   -c  Skip setting up repositories, do only bootstrap ones.
+#   -c  Skip setting up repositories, create only "bootstrap" folders.
 #       This is more reliable than internal '.continue' locking mechanism.
-#   -f  Force. Force builds. No check for pending commit.
-#   -l  Only local changes (no push etc.).
-#   -s  Skip modifications (merge), run only builds.
+#   -f  Force. Force builds. No check for pending commit (have you pushed by mistake?).
+#   -l  Only local changes (no push, does not build).
+#   -s  Skip modifications (like a merge from different branch); run builds right away.
 #
 #
 
@@ -84,10 +84,10 @@ set -xe
   [[ -n "$C" ]] || {
     [[ -z "$L" ]] && fetch="git fetch || exit 255;" || fetch=
 
-    : ">>> Checkout '${DB}' and rebase onto '${SB}'?"
+    : ">>> Checkout '${DB}' and rebase onto '${SB}' and remove '.built' files?"
     delim
 
-    ls -d rubygem-*/ | xargs -n1 -i bash -c "echo; set -x; cd {} || exit 255; [[ -r .continue || -r .skip ]] && exit 0; git checkout '`cut -d'/' -f2- <<< "${DB}"`' || { git checkout -t '${DB}' || exit 255; }; git stash; ${fetch} git reset --hard '${DB}' || exit 255 ; git rebase '${SB}' || exit 255; touch .continue; rm .built ||:"
+    ls -d rubygem-*/ | xargs -i bash -c "echo; set -x; cd {} || exit 255; [[ -r .continue || -r .skip ]] && exit 0; git checkout '`cut -d'/' -f2- <<< "${DB}"`' || { git checkout -t '${DB}' || exit 255; }; git stash; ${fetch} git reset --hard '${DB}' || exit 255 ; git rebase '${SB}' || exit 255; touch .continue; rm .built ||:"
     delim
   }
 
@@ -98,7 +98,7 @@ set -xe
   delim
 
   : ">>> Set up bootstrap folders"
-  ls -d rubygem-*-bs/ | xargs -n1 -i bash -c "echo ; set -x ; cd {} || exit 255 ; [[ -r .skip ]] && exit 0 ; git reset --hard HEAD^ || exit 255"
+  ls -d rubygem-*-bs/ | xargs -i bash -c "echo ; set -x ; cd {} || exit 255 ; [[ -r .skip ]] && exit 0 ; git reset --hard HEAD^ || exit 255"
   delim
 
   [[ `ls -d rubygem-*/ | wc -l` -eq $TT ]] || die "Invalid number of folders incl. *-bs: `ls`"
@@ -106,7 +106,7 @@ set -xe
 }
 
 : ">>> Display diffs"
-ls -d rubygem-*/ | sort -r | xargs -n1 -i bash -c "echo ; cd {} || exit 255 ; [[ -r .skip ]] && exit 0 ; echo \"--> {}\" ; git show --patch-with-stat | colordiff  ; git status -uno"
+ls -d rubygem-*/ | sort -r | xargs -i bash -c "echo ; cd {} || exit 255 ; [[ -r .skip ]] && exit 0 ; echo \"--> {}\" ; git show --patch-with-stat | colordiff  ; git status -uno"
 delim
 
 { set +e; } &>/dev/null
@@ -115,7 +115,7 @@ timeout 3 koji wait-repo "$TG"
 [[ $? -eq 124 ]] || die "Repo not available: $TG"
 
 : ">>> Run builds"
-xargs -n1 -i bash -c "echo; set -x; [[ -d 'rubygem-{}' ]] || exit 255 ; cd 'rubygem-{}' || exit 255; [[ -r .skip || -r .built ]] && exit 0 ; git fetch || exit 255 ; [[ -n '$F' ]] || { git status | grep -q \"Your branch is up to date with '${DB}'.\" && exit 0 ; git status -uno | grep -q \"Your branch is ahead of '${DB}' by 1 commit.\" || exit 255 ; } ; for z in {1..10}; do [[ -n '$F' ]] || fedpkg scratch-build --srpm --target '$TG' && { [[ -z '$L' ]] || exit 0; } && fedpkg new-sources \$(cut -d'(' -f2 < sources | cut -d')' -f1) && { fedpkg push || exit 255 ; for x in {1..10}; do fedpkg build --target '$TG' && { rm .continue; touch .built; P=\"\$(cut -d'-' -f1 <<< '{}')\"; [[ 'bs' == \"\$(cut -d'-' -f2 <<< '{}')\" ]] && B='~bootstrap' || B=''; koji wait-repo --timeout=30 '${TG}' --build=\"rubygem-\$P-\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f1 | rev | sed -e 's/[0-9]*://').fc${FX}\$B\" ; exit 0; } ; sleep 600 ; done ; exit 255; } ; sleep 600; done ; exit 255" <<EOLX
+xargs -i bash -c "echo; set -x; [[ -d 'rubygem-{}' ]] || exit 255 ; cd 'rubygem-{}' || exit 255; [[ -r .skip || -r .built ]] && exit 0 ; git fetch || exit 255 ; [[ -n '$F' ]] || { git status | grep -q \"Your branch is up to date with '${DB}'.\" && exit 0 ; git status -uno | grep -q \"Your branch is ahead of '${DB}' by 1 commit.\" || exit 255 ; } ; for z in {1..10}; do [[ -n '$F' ]] || fedpkg scratch-build --srpm --target '$TG' && { [[ -z '$L' ]] || exit 0; } && fedpkg new-sources \$(cut -d'(' -f2 < sources | cut -d')' -f1) && { fedpkg push || exit 255 ; for x in {1..10}; do fedpkg build --target '$TG' && { rm .continue; touch .built; P=\"\$(cut -d'-' -f1 <<< '{}')\"; [[ 'bs' == \"\$(cut -d'-' -f2 <<< '{}')\" ]] && B='~bootstrap' || B=''; koji wait-repo --timeout=30 '${TG}' --build=\"rubygem-\$P-\$(grep -A 1 '^%changelog$' *.spec | tail -n 1 | rev | cut -d' ' -f1 | rev | sed -e 's/[0-9]*://').fc${FX}\$B\" ; exit 0; } ; sleep 600 ; done ; exit 255; } ; sleep 600; done ; exit 255" <<EOLX
 activesupport
 activejob
 activemodel-bs
