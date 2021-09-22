@@ -15,7 +15,7 @@ section () {
 
 fail () {
   local mu=
-  local se='```'
+  local s='```'
   local mg=
   [[ "$1" == "-s" ]] && {
     mg="needs inspection"
@@ -37,6 +37,13 @@ fail () {
     echo "${1}"
     echo -e "\n${se}"
   }
+}
+
+stderr=
+errout () {
+  [[ -n "$stderr" ]] \
+    && tee -a "$stderr" \
+    || cat
 }
 
 abort () {
@@ -87,6 +94,9 @@ bl='result/build.log'
 MYD="`readlink -e "$(dirname "$0")/.."`"
 [[ -d "$MYD" ]] || abort "Could not scripts directory"
 
+stderr="/dev/stderr"
+[[ -w "$stderr" ]] || stderr=
+
 
 ## GLOBALS
 mc=rawhide
@@ -108,6 +118,13 @@ kl="$me@FEDORAPROJECT\.ORG"
   shift
   :
 } || CON=
+
+[[ "$1" == '-d' ]] && {
+  DEB="$1"
+  shift
+  set -x
+  :
+} || DEB=
 
 [[ "$1" == '-f' ]] && {
   FAS="$1"
@@ -254,15 +271,19 @@ set -x
   section 'SRPM'
 
   # check for buildroot availability
-  for x in {1..16}; do
-    [[ -z "$mrn" ]] || mrn="${x}"
+  max=32
+  for x in $(seq ${max}); do
+    [[ -z "$mrn" ]] || mrn="$(( ${RANDOM} % ${max} + 1))"
 
     mck --shell 'echo available' \
-      | tee -a /dev/stderr \
+      | errout \
       | grep -q '^available$' \
       && break
 
-    [[ $x -eq 16 || -z "$mrn" ]] && abort 'No buildroot is available'
+    [[ -z "$DEB" ]] || mck --shell 'echo available' | errout
+
+    [[ $x -eq ${max} || -z "$mrn" ]] && abort 'No buildroot is available'
+    sleep 5
   done
 
   section 'BUILD'
@@ -295,10 +316,10 @@ section 'TESTS'
 
 TP="$TP\n  - Tests:"
 grep -q '^Executing(%check)' "$bl" && {
-  z="$(grep -E ' (assertions|examples)' "$bl")"
+  z="$(grep -E ' (assertions|examples|scenarios)' "$bl")"
 
   [[ -n "$z" ]] \
-    && ! grep -qE '(^|\s+)0 (assertions|examples)' <<< "$z" \
+    && ! grep -qE '(^|\s+)0 (assertions|examples|scenarios)' <<< "$z" \
     && {
       ! grep ' failures' <<< "$z" || grep -E '(^|\s+)0 failures' <<< "$z" && {
       ! grep ' errors'   <<< "$z" || grep -E '(^|\s+)0 errors'   <<< "$z" \
@@ -366,7 +387,7 @@ TP="$TP\n  - rpmlint:"
 RPML="$(
   rpmlint result/*.rpm *.spec 2>/dev/null \
     | grep -vE ' W: (no\-documentation)$' \
-    | grep -vE ' W: (spelling\-error|zero\-length|devel\-file\-in\-non\-devel\-package) ' \
+    | grep -vE ' W: (spelling\-error|zero\-length|devel\-file\-in\-non\-devel\-package|mixed\-use\-of\-spaces\-and\-tabs) ' \
     | grep -vE ' W: (invalid-url Source)' \
     | sort -u
   )" \
@@ -398,7 +419,7 @@ echo -e "\n=> $E\n_ _ _ _\n\nrpmlint: $RPML\n"
 
 
 ## Output Summary
-cat <<EOLX | tee -a /dev/stderr
+cat <<EOLX | errout
 
 _ _ _ _
 
