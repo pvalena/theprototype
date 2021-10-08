@@ -46,7 +46,6 @@
 #     ./pelc.sh -b stream-ruby-2.5 -c -g rubygem-mongo
 #
 # Ideas:
-#     - Support fedpkg
 #     - Use https://github.com/nexB/scancode-toolkit
 #        ./scancode  --license --processes 2
 #     - Type autodetection
