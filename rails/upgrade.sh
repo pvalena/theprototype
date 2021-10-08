@@ -72,6 +72,7 @@ set +e
 } || {
   rm */.built
   rm */.prepared
+  rm */.continue
   rm */*.txz
   rm */*.src.rpm
 }
@@ -98,7 +99,7 @@ set +e
   W="$2"
   shift 2
   :
-} || W=15
+} || W=30
 
 [[ -z "$1" ]] || abort "Unknown arg: '$1'."
 
