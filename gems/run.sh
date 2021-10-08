@@ -21,6 +21,7 @@ myd="`dirname "$(readlink -e "$0")"`"
 gup="${myd}/gup.sh"
 tst="${myd}/test.sh"
 cpr="`readlink -e "${myd}/../fedora/create_pr.sh"`"
+src="`readlink -e "${myd}/../pkgs/sources.sh"`"
 gpr="`readlink -e "${myd}/../fedora/get_pr.sh"`"
 hom="`readlink -e "${myd}/../../"`/"
 
@@ -44,6 +45,20 @@ addlog () {
 
   sed -i "s|${hom}||" "$2"
   echo -e "${1}: `gistf "$2"`" | tee -a "$o"
+}
+
+crb () {
+  [[ -n "$CON" ]] && CON='-s' || CON=''
+
+  bash -c "set -e; cd '$p'; $gup -j ${CON} -u -x -y" 2>&1 | tee -a "$u"
+  R=$?
+
+  [[ $R -eq 2 ]] && exit 2                    #<< Package is up to date
+  [[ $R -eq 0 ]] || abort "Update failed"
+
+  BLD="$(grep '^Created builds: ' "$u" | cut -d' ' -f3 | grep -E '^[0-9]+$' | head -1)"
+
+  [[ -n "$BLD" ]] || abort 'COPR Build missing'
 }
 
 
@@ -87,6 +102,12 @@ ARG=
   :
 } || pre=
 
+[[ "$1" == '-s' ]] && {
+  SRC="$1"
+  shift
+  :
+} || SRC=
+
 [[ "$1" == '-u' ]] && {
   UPD=y
   shift
@@ -128,7 +149,11 @@ ARG=
   ARG="${ARG} -v"
 }
 
-y="cpr/${p}_"
+[[ "$pre" == 'rubygem' ]] && {
+  ARG="${ARG} -g"
+}
+
+y="$(readlink -f cpr)/${p}_"
 u="${y}update${l}"
 e="${y}test${l}"
 o="${y}summary.md"
@@ -142,6 +167,7 @@ s="${p}/${p}${s}"
 [[ -x "$tst" ]] || abort 'Test script not accessible.'
 [[ -x "$gup" ]] || abort 'Update script not accessible.'
 [[ -x "$cpr" ]] || abort 'CPR script not accessible.'
+[[ -x "$src" ]] || abort 'SRC script not accessible.'
 [[ -d "`dirname "$y"`" ]] || abort 'CPR directory non-existent:' "`dirname "$y"`"
 
 [[ -n "$pre" ]] || abort "Non-prefix packages are not supported yet."
@@ -161,6 +187,12 @@ rm -f "$e"
 rm -f "$d"
 rm -f "$u"
 
+
+[[ -n "$SRC" ]] && {
+  bash -c "set -e; cd '$p'; ${src} -y"
+  echo
+}
+
 [[ -n "$UPD" ]] && {
   pr="$($gpr "$p")"
   SKIPPR=
@@ -175,26 +207,16 @@ rm -f "$u"
   echo ">> Update"
 
   [[ -n "$BLD" ]] && {
-    [[ -n "$CON" ]] || abort "NYI: You cannot specify '-b' without '-c'."
+    [[ -n "$CON" ]] || abort "NYI: You cannot specify '-b' without '-c' while '-u' is specified."
     :
   } || {
-    [[ -n "$CON" ]] && CON='-s' || CON=''
-
-    bash -c "set -e; cd '$p'; $gup -j ${CON} -u -x -y" 2>&1 | tee -a "$u"
-    R=$?
-
-    [[ $R -eq 2 ]] && exit 2                    #<< Package is up to date
-    [[ $R -eq 0 ]] || abort "Update failed"
-
-    BLD="$(grep '^Created builds: ' "$u" | cut -d' ' -f3 | grep -E '^[0-9]+$' | head -1)"
-
-    [[ -n "$BLD" ]] || abort 'COPR Build missing'
+    crb
   }
 
   ARG="-b $BLD -c ${ARG}"
 
   t="$(bash -c "set -e; cd '$p'; git log -1 2>/dev/null | tail -n +5 | sed -e 's/^\s*//'")"
-  grep -q "^Update to " <<< "$t" || {
+  grep -qE "^Up(date|grade) to " <<< "$t" || {
     [[ -z "$FCE" ]] && abort "Malformed git log entry: $t"
   }
 
@@ -224,13 +246,18 @@ EOF
   :
 } || {
   [[ -n "$CON" ]] && ARG="-c ${ARG}"
+
+  [[ -n "$BLD" ]] || {
+    crb
+  }
+
   [[ -n "$BLD" ]] && ARG="-b $BLD ${ARG}"
 }
 
 set +e
 
 # gem2rpm diff
-bash -c "set -e; cd '$p'; gem2rpm --fetch '$x' 2>/dev/null" > "$g" && {
+bash -c "set -e; cd '$p'; gem fetch '$x'; gem2rpm \"\$(ls -d ${x}-*.gem | tail -n1)\"" > "$g" && {
   diff -dbBZrNU 3 "$g" "$s" \
     | grep '^ %changelog$' -B 10000 \
     | tee "$d"
