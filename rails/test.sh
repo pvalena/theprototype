@@ -14,6 +14,8 @@
 
 bash -n "$0" || exit 1
 
+export http_proxy=
+
 trap 'kill 0 ; exit 0' SIGTERM
 trap 'kill 0 ; exit 0' SIGINT
 trap 'kill 0 ; exit 0' SIGABRT
@@ -39,7 +41,14 @@ usage () {
 [[ '-c' == "$1" ]] && {
   C="$1"
   shift
+  :
 } || C=
+
+[[ '-d' == "$1" ]] && {
+  DEBUG="set -x; "
+  shift
+  :
+} || DEBUG=
 
 [[ '-h' == "$1" ]] && usage
 
@@ -60,7 +69,18 @@ usage () {
  #echo rubygem-{spring-watcher-listen,listen,rails,sqlite3,coffee-rails,sass-rails,uglifier,jquery-rails,turbolinks,jbuilder,therubyracer,sdoc,spring,byebug,web-console,io-console,bigdecimal} \
  # | xargs -n1 mock "$@" -n -qi
 
-[[ "$d" ]] && set -x
+# curl for checking response
+A="\"http://127.0.0.1:3000\""
+[[ -n "$DEBUG" ]] && {
+  A="-vvv $A"
+  eval "$DEBUG"
+  t=300
+  :
+} || {
+  t=30
+  A="-s $A"
+}
+
 [[ "$S" ]] && mck -scrub=all
 
 [[ "$C" ]] || {
@@ -86,13 +106,14 @@ for cmd in \
   "bundle config set deployment false" \
   "bundle config set without test" \
   "bundle install -r 3 --local" \
-  "( timeout 20 rails s -u puma &> rails.log & ) ; sleep 5 ; curl -s http://0.0.0.0:3000 | grep -q \"<title>Ruby on Rails</title>\" && rpm -q rubygem-rails && echo OK && exit 0 ; cat rails.log ; exit 1"
+  "( timeout $t rails s -u puma &> rails.log & ) ; sleep 10 ; curl ${A} | tr -s ' ' '\n' | grep \"Ruby on Rails\" && rpm -q rubygem-rails && echo OK && exit 0 ; curl ${A} ||: ; cat rails.log ;  sleep $t ; exit 1"
 do
   bash -c -n "$cmd" || die "Invalid command syntax: $cmd"
+
   lcmd="set -xe; cd ~/app || cd; $cmd || { { set +xe; } &>/dev/null; grep -vE '^#' Gemfile | grep -vE '^$'; gem list | grep '^rails '; exit 1; }"
   bash -c -n "$lcmd" || die "Invalid command syntax: $lcmd"
 
-  mck -unpriv --shell "$lcmd" || die "Command failed: '$cmd'"
+  mck -unpriv --shell "${DEBUG}$lcmd" || die "Command failed: '$cmd'"
   sleep 0.1
 done
 
