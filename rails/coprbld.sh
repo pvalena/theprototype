@@ -37,7 +37,7 @@ set +e
   W="$2"
   shift 2
   :
-} || W=15
+} || W=30
 
 [[ -n "$1" ]] && {
   CRR="$1"
@@ -66,7 +66,7 @@ while read x; do
     #git push
     :
   } || {
-    [[ -n "$BREAK" ]] && break
+    [[ -n "$BREAK" ]] && exit 1
   }
 
   # Do not wait on the last run
@@ -87,5 +87,7 @@ actionmailbox
 actiontext
 actioncable
 EOLX
+
+echo DONE
 
 exit 0

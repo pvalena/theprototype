@@ -34,17 +34,19 @@ read R
       :
   done < <(
       tr -s ' ' <<< "
+        rails
         activesupport
+        activejob
         activemodel
-        activerecord
+        railties
         actionview
         actionpack
-        actionmailer
-        actioncable
         activestorage
-        activejob
-        railties
-        rails
+        activerecord
+        actionmailer
+        actionmailbox
+        actiontext
+        actioncable
        " \
         | cut -d' ' -f2 \
         | grep -vE "^$"
