@@ -28,4 +28,4 @@ BR="${1:-rawhide}"
 SP="${2:-${SP}}"
 FL="${3:-${FL}}"
 
-ls -d ${FL}*/.git/ | cut -d'/' -f1 | xargs -i bash -c "set -e; cd '{}'; O=\"\$(gits | grep -v '^Changes no staged for commit' | grep -v '^nothing to commit' | grep -vE '^On branch (${BR})$' | grep -v '^Your branch is up to date with' | grep -v ^$ | grep -v 'use \"git push\" to publish your local commits')\"; [[ -z \"\O\" ]] && exit 0; echo -e \"${SP}>>> {}\"; echo \"\$O\"; grep -q '^Your branch is ahead of ' <<< \"\$O\" && gitl -\$(grep '^Your branch is ahead of ' <<< \"\$O\" | rev | cut -d' ' -f2) --oneline | cat"
+ls -d */.git/ | grep "^$FL" | cut -d'/' -f1 | xargs -i bash -c "set -e; cd '{}'; O=\"\$(gits | grep -v '^Changes no staged for commit' | grep -v '^nothing to commit' | grep -vE '^On branch (${BR})$' | grep -v '^Your branch is up to date with' | grep -v ^$ | grep -v 'use \"git push\" to publish your local commits')\"; [[ -z \"\O\" ]] && exit 0; echo -e \"${SP}>>> {}\"; echo \"\$O\"; grep -q '^Your branch is ahead of ' <<< \"\$O\" && gitl -\$(grep '^Your branch is ahead of ' <<< \"\$O\" | rev | cut -d' ' -f2) --oneline | cat"
