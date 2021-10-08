@@ -8,6 +8,8 @@ abort () {
   exit 1
 }
 
+P=fed
+
 mkdir -p result
 f1='result/root.log'
 f2='result/build.log'
@@ -21,18 +23,42 @@ srpm () {
   local x=
   [[ -n "$1" ]] && x="$l $1" ||:
   [[ -n "$Q" ]] && q=' &>/dev/null' || q=
-  bash -c "fedpkg $x srpm$q" && return 0
+  bash -c "${DEBUG}${P}pkg $x srpm$q" && return 0
   return 1
 }
 
+buildid () {
+  [[ "$P" == 'fed' ]] && {
+    printf "%08d" "$1"
+    :
+  } || echo "$b"
+}
+
 d=lss
+which "$d" &>/dev/null || d=less
+which "$d" &>/dev/null || d=more
+which "$d" &>/dev/null || d=cat
+
+[[ "$1" == '-a' || "$1" == '--arch' ]] && {
+  A=" --arch '$2'"
+  shift 2
+  :
+} || A=
 [[ "$1" == '-c' ]] && d=cat && shift
+[[ "$1" == '-d' ]] && DEBUG=y && shift
+[[ "$1" == '-o' ]] && P=cent && shift
 [[ "$1" == '-q' ]] && Q=y && shift
+[[ "$1" == '-r' ]] && P=rh && shift
 [[ "$1" == '-s' ]] && S=y && shift
 [[ "$1" == '-t' || "$1" == '--target' ]] && {
-  G="--target '$2'"
+  G=" --target '$2'"
   shift 2
-}
+  :
+} || G=
+
+[[ -n "$DEBUG" ]] && DEBUG="set -x; " || DEBUG=
+
+[[ "${1:0:1}" == '-' ]] && { echo "Unkown arg: $1" >&2; exit 1; }
 
 [[ -n "$1" ]] && {
   r="$1"
@@ -44,7 +70,7 @@ d=lss
   grep -q '^rebase$' <<< "$r" && r="rawhide"
 }
 
-[[ -z "$1" ]] || die "Unkown arg: $1"
+[[ -z "$1" ]] || { echo "Unkown arg: $1" >&2; exit 1; }
 
 [[ -n "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
@@ -57,7 +83,7 @@ d=lss
     } || {
       s=
       c=1
-      for t in "$r" '' 'rawhide' 'f33'; do
+      for t in "$r" '' 'rawhide' 'f35'; do
         srpm "$t" && {
           s="$t"
           c=0
@@ -91,13 +117,22 @@ d=lss
 
 { set +e ; } &>/dev/null
 
-kl="$me@FEDORAPROJECT\.ORG"
-klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
-  kinit "$kl" -l 30d -r 30d -A
-  pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
+[[ "$P" == 'fed' ]] && {
+  kl="$me@FEDORAPROJECT\.ORG"
+  klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' || {
+    kinit "$kl" -l 30d -r 30d -A
+    pgrep -x krenew &>/dev/null || krenew -i -K 60 -L -b
+  }
+  URL="https://kojipkgs.fedoraproject.org"
+}
+[[ "$P" == 'rh' ]] && {
+  URL="http://download.eng.bos.redhat.com/brewroot"
+}
+[[ "$P" == 'cent' ]] && {
+  URL="https://kojihub.stream.rdu2.redhat.com/kojifiles"
 }
 
-cmd="fedpkg $r scratch-build --fail-fast --srpm *.src.rpm $G"
+cmd="${DEBUG}${P}pkg $r scratch-build --fail-fast --srpm *.src.rpm${G}${A}"
 
 # Quiet run
 [[ -z "$Q" ]] || {
@@ -137,12 +172,12 @@ bash -c "${cmd}" 2>&1 \
   | sort -u \
   | head -1 \
   | while read b; do
-      sleep 1
+      sleep 15
       z="`rev <<< "$b" | cut -c -4 | rev | sed 's/^0*//'`"
 
       for f in "$f1" "$f2"; do
         rm "$f"
-        u="https://kojipkgs.fedoraproject.org/work/tasks/$z/`printf "%08d" $b`/`cut -d'/' -f2 <<< "$f"`"
+        u="${URL}/work/tasks/$z/`buildid "$b"`/`cut -d'/' -f2 <<< "$f"`"
         echo "> $u"
         curl -sLk -o "$f" "$u"
       done
