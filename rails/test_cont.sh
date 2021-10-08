@@ -12,7 +12,7 @@ s='s'
   shift
   debug='cat'
   rm=
-  dline='echo " =================== "'
+  dline='{ echo -e "\n===================\n"; } 2>/dev/null'
   s=
 }||:
 
@@ -42,11 +42,14 @@ read -r -d '' BSC << EOS||:
   rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f
   cd app || exit 1
 
+  #rm Gemfile.lock
   [[ -z "$gem" ]] || echo "gem '$gem'" >> Gemfile
 
-  rm Gemfile.lock
+  bundle lock --add-platform ruby x86_64-linux ||:
+
   bundle config set deployment false path vendor without 'development:test'
-  bundle install -r 3 $blocal
+
+  bundle install -r 3 $blocal || exit 3
 
   $dline
 
@@ -54,7 +57,7 @@ read -r -d '' BSC << EOS||:
 
   $dline
 
-  bash -c "set -x ; timeout 60 rails server puma -P rails.pid &>rails.log" &
+  bash -c "set -x ; timeout 60 rails server -u puma -P rails.pid &>rails.log" &
 
   sleep 45
 
@@ -68,6 +71,7 @@ read -r -d '' BSC << EOS||:
 
   $dline
 
+  cat Gemfile.lock
   cat rails.log
 EOS
 
