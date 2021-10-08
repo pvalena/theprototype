@@ -29,7 +29,7 @@ ask () {
       read -n1 -p ">> $@? " r
 
       grep -qi '^y' <<< "${r}" && {
-        clear
+        #clear
         return 0
         :
       }||:
@@ -51,6 +51,18 @@ YES=
 
 set +e
 
+[[ "$1" == '-c' ]] && {
+  shift
+  CLEAN=y
+  :
+} || CLEAN=
+
+[[ "$1" == '-y' ]] && {
+  shift
+  YES=y
+  :
+} || YES=
+
 [[ -z "$1" ]] || {
   X="$1"
   shift
@@ -69,9 +81,12 @@ set +e
 find -L -mindepth 2 -maxdepth 3 -type d -name .git -exec bash -c "cd '{}/..'; git fetch origin" \;
 cmd="$(
     grep -B 20 '^Source' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(${gcom})\s*" \
-      | xargs -i echo -n "; {}" \
-      | xargs -i echo "set -x{} && echo Ok || exit 1"
+      | xargs -i echo -n " && {}" \
+      | xargs -i echo "set -x {} && echo Ok || exit 1"
   )"
+
+cmd="$( sed -e 's/\(&& git clone [^&]* \)&&/\1;/' <<< "$cmd" )"
+
 [[ -z "$cmd" ]] || {
   echo
   echo "\$cmd: $cmd"
@@ -80,9 +95,27 @@ cmd="$(
 }
 find -L -mindepth 2 -maxdepth 3 -type f -name '*.tar.xz' -o -name '*.tar.gz' -o -name '*.txz' -o -name '*.tgz' | xargs -ri mv -v "{}" .
 
+# Cleanup
+[[ -n "$CLEAN" ]] && {
+  cmd="$(
+      grep -B 20 '^Source' "$X" | grep '^#' | cut -d'#' -f2- | grep -E "^\s*(git clone)\s*" \
+        | tr -s ' ' '\n' | grep -E '^http(s)?\:\/\/' \
+        | rev | cut -d'/' -f1 | rev \
+        | sed -e 's/\.git$//' \
+        | xargs -i echo -n " && rm -rf '{}'" \
+        | xargs -i echo "set -x {} && echo Ok || exit 1"
+    )"
+  [[ -z "$cmd" ]] || {
+    echo
+    echo "\$cmd: $cmd"
+    ask 'execute $cmd'
+    bash -c "$cmd" || die 'Failed to execute $cmd'
+  }
+}
+
 spectool -S "$X" | grep ^Source | cut -d' ' -f2- | grep -E '^http[s]*://' | xargs -r -P 0 curl -sLO
 
-regex='(\.(rb|js|patch|1|sh|stp|preset|conf|logrotate|rules|service)|LICENSE|binstub|rubygems\..*|macros\..*)$'
+regex='(\.(rb|js|patch|1|sh|stp|gtk3|preset|conf|logrotate|rules|service)|LICENSE|binstub|rubygems\..*|macros\..*)$'
 
 spectool -S "$X" | grep ^Source | tr -s '\t' ' ' | cut -d' ' -f2- \
   | rev | cut -d'/' -f1 | rev | grep -vE "$regex" \
