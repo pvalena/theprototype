@@ -13,6 +13,7 @@ abort () {
 [[ "$1" == "-d" ]] && {
   set -x
   DEBUG="$1"
+  INFO="$1"
   shift
   :
 } || DEBUG=
@@ -39,14 +40,15 @@ abort () {
 
 [[ -n "$LOOP" ]] && {
   me="$(readlink -e "$0")"
-  exec noploop -v -w 1h \
+  clear
+  exec noploop -w 1h \
     "${me} $DEBUG -i $I $INFO" \
 }
 
 x=pvalena
 d="redhat.com"
 s="lpcs@lpcsn:/`pwd | cut -d'/' -f7-`"
-f=35
+f=36
 or=origin
 ma=rawhide
 
@@ -73,13 +75,12 @@ verb="set -xe"
 klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' \
   || abort 'KRB missing!'
 
-gems="$($lst -a -f -k f34 "rubygem-")"
+gems="$($lst -a -f -k f${f} "rubygem-")"
 
 eval $silt
 read -r -d '' MAIN << EOM
   set -e
   [[ -n "$DEBUG" ]] && set -x
-  sleep "$I"
 
   next () {
     echo -e "\n>>> {}"
@@ -94,6 +95,7 @@ read -r -d '' MAIN << EOM
     }
   }
 
+  sleep "$I"
   cd '{}'
 
   git fetch origin &>/dev/null || {
@@ -166,7 +168,13 @@ read -r -d '' MAIN << EOM
   [[ "\$e" == "\$a" ]] || {
     [[ -z "\$mer" ]] || $fail
 
-    next "Email inconsistency: '\$e' vs '\$a')"
+    m="Email inconsistency: '\$e' vs '\$a')"
+
+    grep -i valena <<< "\$e:\$a" \
+      && next "\$m"
+
+    info "\$m"
+    exit 0
   }
 
   m="<${x}@${d}>"
@@ -177,7 +185,10 @@ read -r -d '' MAIN << EOM
     exit 0
   }
 
-  [[ -r .skip ]] && next 'Explicit skip'
+  [[ -r .skip ]] && {
+    info 'Explicit skip'
+    exit 0
+  }
 
   echo -e "\n>>> {}"
   [[ -z "\$mer" ]] && {
@@ -231,6 +242,9 @@ read -r -d '' MAIN << EOM
       -name '*.gem' \
     | xargs -rI'[]' cp -v "[]" .
 
+  # In case the gem file is still not present
+  gem fetch "\$(cut -d'-' -f2- <<< '{}')" ||:
+
   $bld -b "${ma}" -r -s || exit 255
 
   echo -e "\n>> Update suceeded"
@@ -249,5 +263,4 @@ bash -c -n "$MAIN" || abort "Syntax check failed!"
     | grep -v '^+ git status -uno$'
 }
 
-echo
 exit 0
