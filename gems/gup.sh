@@ -270,7 +270,7 @@ nam="`cut -d'-' -f2- <<< "$nam"`"
 }
 
 # new
-rm *.gem ||:
+[[ -n "$CON" ]] || rm *.gem ||:
 bash -c "gem fetch $PRF '$nam' '$ver' $SIL" || die "gem fetch $prf failed"
 
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
@@ -294,11 +294,13 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   prever=".`rev <<< "$ver" | cut -d'.' -f1 | rev`"
   ver="`rev <<< "$ver" | cut -d'.' -f2- | rev`"
 
-  grep -qE '^[#%]*%global prerelease' "$X" && {
-    sed -i "s/^[#%]*\(%global prerelease\).*$/\1 $prever/" "$X"
-    :
-  } || {
-    sed -i "/^\s*Name: / i %global prerelease $prever\n" "$X"
+  [[ -n "$CON" ]] || {
+    grep -qE '^[#%]*%global prerelease' "$X" && {
+      sed -i "s/^[#%]*\(%global prerelease\).*$/\1 $prever/" "$X"
+      :
+    } || {
+      sed -i "/^\s*Name: / i %global prerelease $prever\n" "$X"
+    }
   }
 
   [[ -z "$ver" || "$prever" == '.' ]] \
@@ -306,7 +308,8 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   :
 } || {
   prever=
-  sed -i "s/^[#%]*\(%global prerelease\).*$/#%\1 /" "$X"
+  [[ -n "$CON" ]] \
+    || sed -i "s/^[#%]*\(%global prerelease\).*$/#%\1 /" "$X"
 }
 echo
 
