@@ -159,10 +159,12 @@ cmd="${DEBUG}${P}pkg $r scratch-build --fail-fast --srpm *.src.rpm${G}${A}"
 
 # Standard run
 date -Isec
-[[ -w "$stderr" ]] && debug="tee -a $stderr" || debug=cat
+[[ -w "$stderr" ]] && debug_out="tee -a $stderr" || debug_out=cat
+
+eval "$DEBUG"
 
 bash -c "${cmd}" 2>&1 \
-  | $debug \
+  | $debug_out \
   | grep 'buildArch' \
   | grep -E '(FAILED|closed)' \
   | tr -s ' ' \
