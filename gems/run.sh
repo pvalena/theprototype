@@ -240,7 +240,7 @@ rm -f "$u"
 
   [[ -n "$CON" ]] || {
 cat >> "$o" <<-EOF
-${tr}__Note: this update was created and tested automatically, but it was not checked by anyone. Please check the logs, commits, and comment "LGTM" it if you find it ok. Afterwards it will be merged and built automatically as well (and checked by me).__
+${tr}__Note: this update was created and tested automatically, but it was not checked by anyone. Please check the logs, commits, and comment "LGTM" it if you find it ok. Afterwards it will be merged and built automatically as well (and the build status checked). For that I'd ask you to add the package into @ruby-packagers-sig group (if it isn't yet).__
 EOF
   }
   :
