@@ -85,7 +85,7 @@ cmd="$(
       | xargs -i echo "set -x {} && echo Ok || exit 1"
   )"
 
-cmd="$( sed -e 's/\(&& git clone [^&]* \)&&/\1;/' <<< "$cmd" )"
+cmd="$( sed -e 's/\(&& git clone [^&]* \)&&/\1;/g' <<< "$cmd" )"
 
 [[ -z "$cmd" ]] || {
   echo
