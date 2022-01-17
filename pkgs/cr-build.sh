@@ -70,7 +70,7 @@ ls *.src.rpm &>/dev/null || {
   mv result/*.src.rpm . ||:
 
   ls *.src.rpm &>/dev/null || {
-    fedpkg --dist f34 srpm || {
+    fedpkg --dist f36 srpm || {
       echo "Warning: modifying spec file..." >&2
       sed -i 's/^Recommends: /Requires: /' *.spec
       sed -i '/^Suggests: / s/^/#/' *.spec
