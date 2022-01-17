@@ -90,6 +90,7 @@ A="\"http://127.0.0.1:3000\""
 
 [[ "$N" ]] || {
   mck -pm-cmd group install 'Ruby on Rails' || die 'group install failed'
+  mck -pm-cmd remove rubygem-abrt || die 'abrt removal failed'
 }
 
 [[ -n "$I" ]] && {
@@ -98,11 +99,12 @@ A="\"http://127.0.0.1:3000\""
 
 for cmd in \
   "cd; [[ -d ~/app ]] || exit 0; rm -rf ~/app/" \
-  "rails new app --skip-bundle --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f" \
+  "rails new app --skip-bundle --skip-test --skip-bootsnap --skip-webpacker --skip-git --skip-javascript -f" \
   "sed -i \"s/\(gem .puma.\).*/\1/\" Gemfile" \
   "sed -i \"s/\(gem .listen.\).*/\1/\" Gemfile" \
   "sed -i \"/gem .sass-rails./ d\" Gemfile" \
   "sed -i \"/gem .rack-mini-profiler./ d\" Gemfile" \
+  "sed -i \"/gem .debug./ d\" Gemfile" \
   "bundle config set deployment false" \
   "bundle config set without test" \
   "bundle install -r 3 --local" \
@@ -110,7 +112,7 @@ for cmd in \
 do
   bash -c -n "$cmd" || die "Invalid command syntax: $cmd"
 
-  lcmd="set -xe; cd ~/app || cd; $cmd || { { set +xe; } &>/dev/null; grep -vE '^#' Gemfile | grep -vE '^$'; gem list | grep '^rails '; exit 1; }"
+  lcmd="set -xe; export PATH=\"\${PATH}:/builddir/bin\"; [[ -d /builddir/app ]] && cd ~/app || cd; $cmd || { { set +xe; } &>/dev/null; grep -vE '^#' Gemfile | grep -vE '^$'; gem list | grep '^rails '; exit 1; }"
   bash -c -n "$lcmd" || die "Invalid command syntax: $lcmd"
 
   mck -unpriv --shell "${DEBUG}$lcmd" || die "Command failed: '$cmd'"

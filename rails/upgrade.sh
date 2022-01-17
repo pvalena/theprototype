@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# ./updrade.sh [options]
+# ./updrade.sh [options] [version]
 #
 #   Simple script to upgrade from current Ruby on Rails in Fedora
 #   to latest version. Uses `gems/gup.sh` to update the respective packages.
-#   Also handles continuation (`-c`) well.
+#   Builds packages in COPR. Handles process continuation (`-c`) for you.
 #
 #   Specifically:
 #     - DOES NOT handle the order of packages build/upgrade
@@ -19,15 +19,22 @@
 #     - output status of commits periodically
 #     - run test.sh in the end
 #
+# Args:
+#   version   Explicit version to upgrade to.
+#
+#
 # Options:
 #
 #   -c      Do not remove Sources (*.txz) and SRPM, and '.built' file.
+#
+#   -f      Fedora version to operator on, e.g. `35`.
+#           Used for branch names suffix to handle upgrade on as well as source repository.
 #
 #   -n      Do not abort on upgrade error (also passed to coprbld.sh).
 #
 #   -p      Download pre-release version.
 #
-#   -w S    Time to wait (passed to coprbld) after an upgrade. (Default: 15)
+#   -w S    Time to wait (passed to coprbld) after an upgrade. (Default: 30)
 #           For availability in COPR repo.
 #
 
@@ -77,6 +84,15 @@ set +e
   rm */*.src.rpm
 }
 
+BRA='rebase'
+FED=''
+[[ "$1" == '-f' ]] && {
+  FED="$1 $2"
+  BRA="${BRA}-f${2}"
+  shift 2
+  :
+} || FED=''
+
 [[ "$1" == '-n' ]] && {
   BREAK=
   shift
@@ -101,10 +117,16 @@ set +e
   :
 } || W=30
 
+[[ -z "$1" ]] || {
+  V="-v $1"
+  shift
+  :
+}
+
 [[ -z "$1" ]] || abort "Unknown arg: '$1'."
 
 mkdir -p "copr-r8-${CRR}"
-git clone https://github.com/rails/rails.git
+git clone https://github.com/rails/rails.git ||:
 bash -c "
   set -xe
   cd rails
@@ -126,13 +148,16 @@ while read x; do
 
   set -x
 
-  git checkout rebase
+  git checkout "${BRA}" || {
+    git checkout -b "${BRA}"
+    git checkout "${BRA}"
+  }
 
   ln -s ../rails .
 
   cp -n ../rubygem-activesupport/rails-*-tools.txz .
 
-  $GUP -b ${CRR} $CON $PRE -j -r -x -y && {
+  bash -c "set -x; $GUP -b ${CRR} $CON ${FED} $PRE -j -r ${V} -x -y" && {
     touch .prepared
     :
   } || {

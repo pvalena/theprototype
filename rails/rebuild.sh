@@ -3,11 +3,11 @@
 # ./rebuild.sh [-c][-n][-s] TARGET [SOURCE_BRANCH [DESTINATION_BRANCH]]
 #
 #   -c  Skip setting up repositories, create only "bootstrap" folders.
-#       This is more reliable than internal '.continue' locking mechanism.
+#       This is more reliable than builtin '.continue' locking mechanism.
 #   -f  Force. Force builds. No check for pending commit (have you pushed by mistake?).
 #   -l  Only local changes (no push, does not build).
 #   -s  Skip modifications (like a merge from different branch); run builds right away.
-#
+#   -y  AssumeYes (don't ask, accept everything).
 #
 
 set -e
