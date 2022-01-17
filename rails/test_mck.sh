@@ -7,6 +7,7 @@ debug='head'
 dline=
 s='s'
 scl=
+dep="ruby-devel make redhat-rpm-config gcc-c++ sqlite3-devel"
 
 [[ "$1" == '-d' ]] && {
   shift
@@ -34,6 +35,8 @@ scl=
 
 read -r -d '' BSC << EOS||:
   set -xe
+  export http_proxy=''
+  export PATH="\${PATH}:/builddir/bin"
 
   [[ -z "$scl" ]] ||  . scl_source enable $scl||:
 
@@ -41,21 +44,30 @@ read -r -d '' BSC << EOS||:
   gem list
   gem env
 
-  which rails || gem install rails
+  rpm -q $dep \
+    || dnf install -y $dep
+
+  which rails || \
+    gem install rails
+
   export GEM_HOME=\$( ruby -e 'puts Gem.user_dir' )
 
   # The bellow can fail, but just continue until log
   { set +e ; }&>/dev/null
 
-  rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f
+  rails new app --skip-bundle --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f
+  #rails new app --skip-bundle --skip-spring --skip-test --skip-bootsnap --skip-webpacker --skip-javascript -f
   cd app || exit 1
 
   [[ -z "$gem" ]] || echo "gem '$gem'" >> Gemfile
 
   rm Gemfile.lock
   bundle config set deployment false path vendor without 'development:test'
+  bundle config set deployment false
+  bundle config set without test
 
   bundle platform
+  bundle lock --add-platform x86_64-linux
   bundle lock --add-platform ruby || exit 2
 
   bundle install -r 3 $blocal || exit 3
@@ -66,7 +78,7 @@ read -r -d '' BSC << EOS||:
 
   $dline
 
-  bash -c "set -x ; timeout 60 rails server puma -P rails.pid &>rails.log" &
+  bash -c "set -x ; timeout 60 rails server -u puma -P rails.pid &>rails.log" &
 
   sleep 45
 
@@ -85,4 +97,5 @@ EOS
 
 bash -n <<< "$BSC"
 
-exec mck -unpriv --shell "$BSC"
+exec mck -unpriv --shell --enable-network "$BSC"
+
