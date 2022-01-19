@@ -18,6 +18,7 @@ l='--release'
 
 me=pvalena
 stderr=/dev/stderr
+errlog=stderr.log
 
 srpm () {
   local x=
@@ -163,10 +164,12 @@ cmd="${DEBUG}${P}pkg $r scratch-build --fail-fast --srpm *.src.rpm${G}${A}"
 
 # Standard run
 date -Isec
+[[ -w "$stderr" ]] || stderr="$errlog"
 [[ -w "$stderr" ]] && debug_out="tee -a $stderr" || debug_out=cat
 
 eval "$DEBUG"
 
+# TODO: O=$(capture); echo $O | grep FAILED && ...
 bash -c "${cmd}" 2>&1 \
   | $debug_out \
   | grep 'buildArch' \
@@ -184,12 +187,17 @@ bash -c "${cmd}" 2>&1 \
       for f in "$f1" "$f2"; do
         rm "$f"
         u="${URL}/work/tasks/$z/`buildid "$b"`/`cut -d'/' -f2 <<< "$f"`"
-        echo "> $u"
+        echo "> $u"=
         curl -sLk -o "$f" "$u"
       done
 
       bash -c "$d '$f2' '$f1'"
     done
+
+[[ "$stderr" == "$errlog" && -r "$errlog" ]] && {
+  cat "$errlog"
+  rm "$errlog"
+}
 
 exit 0
 ###########################################################

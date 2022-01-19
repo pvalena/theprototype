@@ -56,7 +56,8 @@ abort () {
 [[ -t 1 ]] && v='' || v="-v "
 #msr="${v}-n --isolation=nspawn --result=./result"
 msr="${v}-n --result=./result"
-mar='--bootstrap-chroot'
+#mar='--bootstrap-chroot'
+mar='--no-bootstrap-chroot'
 mrr=''
 mrn=1
 mrs='-x86_64'
@@ -333,7 +334,7 @@ grep -q '^Executing(%check)' "$bl" && {
 } || TP="$TP `fail "%check is missing"`"
 
 section 'INSTALL'
-mar=''
+#mar=''
 x="$(find result -name "*.fc*.noarch.rpm" -o -name "*.fc*.x86_64.rpm")"
 [[ -n "$x" ]] && {
   mck -i $x || E="Installation `fail "$x"`"

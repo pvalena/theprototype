@@ -5,7 +5,7 @@
 bash -n "$0" || exit 7
 
 #mar='--isolation=nspawn --bootstrap-chroot'
-mar='--bootstrap-chroot'
+mar='--no-bootstrap-chroot'
 mck () {
   local c=
   [[ -n "$cnf" ]] && c="-r $cnf"

@@ -45,8 +45,9 @@ srpm () {
     rm *.src.rpm
   } &>/dev/null
 
-  E="`mock -n --result=./result -r fedora-${COP}-x86_64 --bootstrap-chroot --buildsrpm -v --spec *.spec --sources . 2>&1`" || {
-    warn "Failed to create $1 srpm, using fallback.\n" "$E"
+#  E="`mock -n --result=./result -r fedora-${COP}-x86_64 --bootstrap-chroot --buildsrpm -v --spec *.spec --sources . 2>&1`" || {
+  E="`mock -n --result=./result -r fedora-${COP}-x86_64 --no-bootstrap-chroot --buildsrpm -v --spec *.spec --sources . 2>&1`" || {
+    warn "Failed to create $1 srpm, using fallback. Log:\n" "$E"
 
     E="`fedpkg --release $REL srpm 2>&1`" || {
       die "Failed to create $1 srpm(2)" "$E"
@@ -327,7 +328,7 @@ M="Update to $nam ${ver}${prever}."
 gcom="git|cd|tar|wget|curl"
 
 [[ -n "$CON" ]] || {
-  c="rpmdev-bumpspec -D -c '$M$R'"
+  c="rpmdev-bumpspec -c '$M$R'"
 
   bash -c "set -x; $c -n '$ver' '$X'" || {
     warn "Failed to use rpmdev-bumpspec bump version, using fallback."

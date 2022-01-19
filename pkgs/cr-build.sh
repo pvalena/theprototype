@@ -62,7 +62,8 @@ l="`readlink -f "../copr-r8-${n}"`"
 
 ls *.src.rpm &>/dev/null || {
   rm result/*.src.rpm ||:
-  mar='-n --result=./result --bootstrap-chroot --buildsrpm --sources . --spec'
+#  mar='-n --result=./result --bootstrap-chroot --buildsrpm --sources . --spec'
+  mar='-n --result=./result --no-bootstrap-chroot --buildsrpm --sources . --spec'
   mock $mar *.spec || \
     mock -v $mar *.spec || {
       echo "Warning: failed to build SRPM in mock, fallback to fedpkg." >&2

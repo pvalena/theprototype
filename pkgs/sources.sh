@@ -48,6 +48,9 @@ ask () {
 X="`ls *.spec`"
 gcom="git|cd|tar|wget|curl"
 YES=
+stderr=/dev/stderr
+
+[[ -w "$stderr" ]] && debug_out="tee -a $stderr" || debug_out=cat
 
 set +e
 
@@ -120,7 +123,7 @@ regex='(\.(rb|js|patch|1|sh|stp|gtk3|preset|conf|logrotate|rules|service)|LICENS
 spectool -S "$X" | grep ^Source | tr -s '\t' ' ' | cut -d' ' -f2- \
   | rev | cut -d'/' -f1 | rev | grep -vE "$regex" \
   | while read x; do
-      echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`" | tee -a /dev/stderr
+      echo "SHA512 ($x) = `sha512sum "$x" | cut -d' ' -f1`" | $debug_out
     done > sources
 
 spectool -S "$X" | grep -E '^(Source|Patch)' | tr -s '\t' ' ' | cut -d' ' -f2- \

@@ -12,7 +12,7 @@ V="$1"
 P="`basename "$(pwd)"`"
 M="Update to ${P} ${V}."
 
-rpmdev-bumpspec -D -n "$V" -c "$M" -u "Pavel Valena <pvalena@redhat.com>" *.spec
+rpmdev-bumpspec -n "$V" -c "$M" -u "Pavel Valena <pvalena@redhat.com>" *.spec
 nn *.spec
 
 [[ -x "$src" ]] || echo "'$src' is not executable!" >&2
