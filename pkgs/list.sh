@@ -1,36 +1,36 @@
 #!/bin/bash
 #
-# ./listpkgs.sh [-a][-b][-c][-f][-k][-r] TAG PREFIX
+# ./listpkgs.sh [-a][-b][-c][-f][-k][-r] TAG [PREFIX]
 #
-#   Get a list of packages in a TAG with prefix PREFIX.
-#   Uses brew brew command by default.
+#   Get a list of packages in a TAG grepped with prefix PREFIX.
+#   Packages are stripped from version and release by default.
+#   Uses koji command by default.
 #   PREFIX is validated as a regular expression (grep -E).
 #
-#   Options have to be specified before Arguments.
+#   Options have to be specified before rest of the arguments.
 #   Options are expected in an alphabetical order.
 #
 # Arguments:
-#   TAG     brew tag, f.e.: 
-#                           
-#   PREFIX  prefix to filter by, f.e. scl name with trailing '-',
-#           like 'rubygem-'
+#   TAG     brew tag
+#
+#   PREFIX  prefix to filter by, f.e.: 'rubygem-'
 #
 # Options:
-#   -a    keep prefix
-#   -b    keep version
+#   -b    use brew command
 #   -c    use cbs command
-#   -f    use koji command
 #   -k    keep NVR
+#   -p    remove prefix
 #   -r    result in random order
+#   -v    keep version
 #
 #
 
- die () {
+die () {
   echo "Error: $@" >&2
   exit 1
- }
+}
 
- usage () {
+usage () {
   local mf="`readlink -e "$0"`"
   [[ -r "$mf" ]] || die "Invalid file "
 
@@ -42,23 +42,26 @@
 
   head -n$N "$mf" | tail -n+2 | cut -d'#' -f2- | ${PAGER-more}
   exit 0
- }
+}
 
- cutx () {
+cutx () {
   rev | cut -d'-' -f${1}- | rev
- }
+}
 
- [[ "$1" == "-a" ]] && { PRE= ; shift ; } || PRE=y
- [[ "$1" == "-b" ]] && { VER="cutx 2" ; shift ; } || VER="cutx 3"
- [[ "$1" == "-c" ]] && { WHA="koji -p cbs" ; shift ; } || WHA=brew
- [[ "$1" == "-d" ]] && { DEB="y" ; shift ; } || DEB=
- [[ "$1" == "-f" ]] && { WHA=koji ; shift ; }
- [[ "$1" == "-k" ]] && { VER=cat ; shift ; }
- [[ "$1" == "-r" ]] && { RAN=R ; shift ; } || RAN=
- [[ -z "$1" || "$1" == "-h" ]] && usage
+WHA=koji
+VER="cutx 3"
 
- [[ -n "$PRE" ]] && PRE="$2"
+[[ "$1" == "-b" ]] && { WHA="brew" ; shift ; }
+[[ "$1" == "-c" ]] && { WHA="koji -p cbs" ; shift ; }
+[[ "$1" == "-d" ]] && { DEB="y" ; shift ; } || DEB=
+[[ "$1" == "-k" ]] && { VER=cat ; shift ; }
+[[ "$1" == "-p" ]] && { PRE=y ; shift ; } || PRE=
+[[ "$1" == "-r" ]] && { RAN=R ; shift ; } || RAN=
+[[ "$1" == "-v" ]] && { VER="cutx 2" ; shift ; }
 
- [[ -n "$DEB" ]] && set -x
+[[ -z "$1" || "$1" == "-h" ]] && usage
 
- exec $WHA list-tagged --quiet --inherit --latest "$1" | grep -E "^$2" | cut -d' ' -f1 | sed "s/^$PRE//" | $VER | sort -u$RAN | grep -v '^$'
+[[ -n "$PRE" ]] && PRE="$2"
+[[ -n "$DEB" ]] && set -x
+
+exec $WHA list-tagged --quiet --inherit --latest "$1" | grep -E "^$2" | cut -d' ' -f1 | sed "s/^$PRE//" | $VER | sort -u$RAN | grep -v '^$'
