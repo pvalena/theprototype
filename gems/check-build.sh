@@ -75,7 +75,7 @@ verb="set -xe"
 klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' \
   || abort 'KRB missing!'
 
-gems="$($lst -a -f -k f${f} "rubygem-")"
+gems="$($lst -k f${f} "rubygem-")"
 
 eval $silt
 read -r -d '' MAIN << EOM
@@ -186,7 +186,7 @@ read -r -d '' MAIN << EOM
   }
 
   [[ -r .skip ]] && {
-    info 'Explicit skip'
+    next 'Explicit skip'
     exit 0
   }
 
@@ -226,6 +226,7 @@ read -r -d '' MAIN << EOM
   [[ -n "\$e" ]] || $fail
 
   $silt
+  date -Isec
   echo -e "\n>> Build New Update"
 
   # Get sources from second computer
