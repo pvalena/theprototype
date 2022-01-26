@@ -39,6 +39,7 @@ which "$d" &>/dev/null || d=less
 which "$d" &>/dev/null || d=more
 which "$d" &>/dev/null || d=cat
 
+# ARGS
 [[ "$1" == '-a' || "$1" == '--arch' ]] && {
   A=" --arch '$2'"
   shift 2
@@ -58,7 +59,7 @@ which "$d" &>/dev/null || d=cat
 
 [[ -n "$DEBUG" ]] && DEBUG="set -x; " || DEBUG=
 
-[[ "${1:0:1}" == '-' ]] && { echo "Unkown arg: $1" >&2; exit 1; }
+[[ "${1:0:1}" == '-' ]] && abort "Unkown arg:" "$1"
 
 [[ -n "$1" ]] && {
   r="$1"
@@ -72,6 +73,9 @@ which "$d" &>/dev/null || d=cat
 
 [[ -z "$1" ]] || { echo "Unkown arg: $1" >&2; exit 1; }
 
+which "${P}pkg" &>/dev/null || abort "Dependency missing: ${P}pkg"
+
+# SRPM
 [[ -n "$S" && -n "`ls *.src.rpm`" ]] || {
   rm *.src.rpm ||:
 
