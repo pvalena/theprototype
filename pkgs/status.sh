@@ -13,6 +13,8 @@
 #
 #   -d  debug mode
 #
+#   -i  sleep interval
+#
 #   -l  run in loop
 #
 #   -r  set 'rubygem-' as a prefix (filter)
@@ -30,6 +32,13 @@ bash -n "$0"
   shift
   :
 }
+
+[[ '-i' == "$1" ]] && {
+  IN="$2"
+  shift 2
+  :
+} || IN=15
+
 
 [[ '-l' == "$1" ]] && {
   LO="$1"
@@ -54,10 +63,12 @@ bash -n "$0"
 BR="${1:-rawhide}"
 FL="${2:-${FL}}"
 SP="${3:-${SP}}"
+IN="${4:-${IN}}"
 
 echo "> Branch: $BR"
 echo "> Prefix: $FL"
 echo "> Separator: $SP"
+echo "> Interval: $IN"
 echo
 
 while :; do
@@ -65,6 +76,7 @@ while :; do
   ls -d */.git/ | grep "^$FL" | cut -d'/' -f1 | xargs -i bash -c "set -e; cd '{}'; O=\"\$(gits | grep -v '^Changes no staged for commit' | grep -v '^nothing to commit' | grep -vE '^On branch (${BR})$' | grep -v '^Your branch is up to date with' | grep -v ^$ | grep -v 'use \"git push\" to publish your local commits')\"; [[ -z \"\O\" ]] && exit 0; echo -e \"${SP}>>> {}\"; echo \"\$O\"; grep -q '^Your branch is ahead of ' <<< \"\$O\" && gitl -\$(grep '^Your branch is ahead of ' <<< \"\$O\" | rev | cut -d' ' -f2) --oneline | cat"
 
   [[ -z "$LO" ]] && break
-  sleep 15
+  sleep $IN
   clear
+  echo "##############################################################"
 done
