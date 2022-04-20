@@ -18,8 +18,8 @@ rebuild() {
       }
       [[ -d '{}' ]] || fedpkg co '{}'
       cd '{}' || {
-        echo '>>{}<<'
-        exit 255
+        fail cd
+        exit 1
       }
       echo -e '\n'
       pwd
@@ -32,7 +32,7 @@ rebuild() {
       }
       gem fetch \"\$(basename \"\$PWD\" | cut -d'-' -f2-)\" || fail fetch
       fedpkg sources || fail sources
-      ${pretend} ~/Work/lpcsn/home/lpcs/lpcsf-new/test/scripts/pkgs/cr-build.sh -c -t 30m ${target} || fail build
+      ${pretend} $crb -c -t 30m ${target} || fail build
       sleep ${slp}
       echo
     "
@@ -81,23 +81,24 @@ grep -E '^[0-9]+' <<< "$N" || exit 3
 
 
 myd="$(dirname "$(readlink -f "$0")")"
-crb="$(readlink -f "${myd}/../pkgs/cr-build.sh")"
+crb="$(readlink -f "${myd}/cr-build.sh")"
 
-[[ -x "$crb" && -n "$crb" ]]
+[[ -x "$crb" ]]
 [[ -n "$slp" ]]
 
 set +e
 for n in {1..$N}; do
   [[ -z "$1" ]] && {
     ls -d ${prefix}*/ \
-      rebuild
+      | rebuild
     :
   } || {
     [[ -r "$1" && ! -d "$1" ]] && {
       cat "$1" | rebuild
       :
     } || {
-      echo "$@" | tr -s ' ' '\n' | rebuild
+      echo "$@" | tr -s ' ' '\n' \
+        | rebuild
 
     }
   }
