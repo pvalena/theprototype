@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby -W0
 
 require 'ap'
 require 'timeout'
