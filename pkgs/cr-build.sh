@@ -70,12 +70,12 @@ ls *.src.rpm &>/dev/null || {
   mv result/*.src.rpm . ||:
 
   ls *.src.rpm &>/dev/null || {
-    fedpkg --dist f36 srpm || {
+    fedpkg --release rawhide srpm || {
       echo "Warning: modifying spec file..." >&2
       sed -i 's/^Recommends: /Requires: /' *.spec
       sed -i '/^Suggests: / s/^/#/' *.spec
       sed -i -e 's/\(Requires\:\)\s*(.*with\(.*\))/\1\2/' *.spec
-      fedpkg --dist f34 srpm
+      fedpkg --release rawhide srpm
     }
   }
 }
