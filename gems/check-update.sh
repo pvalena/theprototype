@@ -178,14 +178,14 @@ bash -c -n "$MAIN" || exit 3
 [[ -z "$1" ]] && {
   ls -d rubygem-*/*.spec \
     | cut -d'/' -f1 \
-    | sort -u \
+    | sort -uR \
     | xargs -i bash -c "$MAIN" 2>&1 \
     | tee -a "cpr/update_`date -I`.log"
   :
 } || {
   ls -d "$@" \
     | cut -d'/' -f1 \
-    | sort -u \
+    | sort -uR \
     | xargs -i bash -c "$MAIN" 2>&1 \
     | tee -a "cpr/update_`date -I`.log"
 }
