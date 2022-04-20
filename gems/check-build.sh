@@ -48,7 +48,7 @@ abort () {
 x=pvalena
 d="redhat.com"
 s="lpcs@lpcsn:/`pwd | cut -d'/' -f7-`"
-f=36
+f=rawhide
 or=origin
 ma=rawhide
 
@@ -75,7 +75,7 @@ verb="set -xe"
 klist -A | grep -q ' krbtgt\/FEDORAPROJECT\.ORG@FEDORAPROJECT\.ORG$' \
   || abort 'KRB missing!'
 
-gems="$($lst -k f${f} "rubygem-")"
+gems="$($lst -k ${f} "rubygem-")"
 
 eval $silt
 read -r -d '' MAIN << EOM
