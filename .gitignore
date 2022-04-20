@@ -1,0 +1,12 @@
+*~
+*.swp
+*.rpm
+*.xz
+*.tgz
+*.gem
+*.lst
+*.log
+*.json
+*.csv
+*.save
+*.txt
