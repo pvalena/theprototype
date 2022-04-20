@@ -5,6 +5,7 @@ bash -n "$0"
 
 ## CONFIG
 me='pvalena'
+export http_proxy=
 
 kpf='rubygem|vagrant'
 l='.log'
