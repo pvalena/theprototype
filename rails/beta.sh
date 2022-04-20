@@ -3,6 +3,10 @@
 set -xe
 bash -n "$0"
 
+false 'For documentation purposes only'
+
+exit 1
+
 [[ -n "$1" ]] || {
   find . -maxdepth 2 -type f -iname '*.spec' \
     | xargs -r "$0"
@@ -13,6 +17,10 @@ bash -n "$0"
 OLD_VERSION="${1:-6.0.0}"
 VERSION="${2:-6.0.2}"
 BETA="${3:-.rc1}"
+
+GET="$(readlink -e "`dirname "$(readlink -e "$0")"`/../gems/get.sh")"
+[[ -x "$GET" ]]
+
 
 myd="`pwd`"
 for sf in "$@"; do
@@ -58,14 +66,23 @@ for sf in "$@"; do
   set +ex
 
   # cleanup
-  #{ rm *.src.rpm ; rm *.gem ; rm *.tgz ; rm *.tar.gz ; } &>/dev/null
+  { rm *.src.rpm ; rm *.gem ; rm *.tgz ; rm *.tar.gz ; } &>/dev/null
 
   # fetch the new gem version
-  #gem fetch --pre "$g"
+  gem fetch --pre "$g"
 
   ## sources
   # run the command get ~magic~
-  ## TODO ##
+  bash -c "$GET '$f' '$VERSION$BETA'" ||:
+
+  grep -qE 'rails-\S*-tools' "$f" && cp -v ../rubygem-activesupport/rails-*-tools.txz .
 done
 
 exit 0
+########## NAH ##########
+  find -type f -iname '*~*.tgz' -or -iname '*~*.gem' \
+    | xargs -i bash -c "f=\$(rev <<< '{}' | cut -d'~' -f2- | rev) ; a=\$(rev <<< '{}' | cut -d'~' -f1 | rev) ; mv -v '{}' \"\${f}.\${a}\" || exit 255"
+
+  grep -A 10 ' git clone ' "$X" | grep -E "$gcom" \
+    | xargs -i bash -c "O=\$(sed -e 's|/|\\\/|g' <<< '{}') ; set -x ; sed -i \"/^\$O/ s/${OLD_VERSION}/${VERSION}/g\" "$X""
+
