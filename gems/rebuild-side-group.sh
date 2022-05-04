@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-set -ex
+set -e
 bash -n "$0"
 
 bask () {
@@ -10,6 +10,12 @@ bask () {
   [[ "$a" == "y" || "$a" == "yes" ]] || return 1
   return 0
 }
+
+[[ "-d" == "$1" ]] && {
+  DEBUG="y"
+  shift
+  :
+} || DEBUG=
 
 [[ "-n" == "$1" ]] && {
   NOBUILD="y"
@@ -29,6 +35,12 @@ bask () {
   [[ -n "$NOBUILD" ]] && { echo "NOBUILD(-n) does not make sense in combination with REPEAT(-r $REPEAT)" >&2 ; exit 3; }
   :
 } || REPEAT=
+
+[[ "-t" == "$1" ]] && {
+  TARGET="-t $2"
+  shift 2
+  :
+} || TARGET=
 
 [[ -n "$1" ]] || exit 1
 
@@ -53,20 +65,24 @@ l="################################################################"
   mine="$(~/lpcsf-new/test/scripts/fedora/list_group_packages.sh ruby-packagers-sig)"
 }
 
-echo "$l"
-echo -e "packages:\n$mine\n"
-echo "$l"
+[[ -n "$DEBUG" ]] && {
+  echo "$l"
+  echo -e "All (unfiltered) packages:\n$mine\n"
+
+} >&2
 
 # \$1: libruby.so.3.0()
 
 while [[ -n "$1" ]]; do
   p="$1"
 
-  bash -c " set -x; { $xdnf --qf '%{name}' --whatrequires '$p' --arch=src ; $xdnf --qf '%{name}' --whatrequires '$p'; } | grep '^rubygem\-' | sort -u | xargs $xdnf --qf '%{source_name}' | grep -v '^(none)' | sort -u | grep '^rubygem\-'" \
-    | xargs -i bash -c "grep '^{}$' <<< \"$mine\"" \
+  echo -e "\n${l}\nPackages selected for build:" >&2
+
+  bash -c " [[ -n '$DEBUG' ]] && set -x; { $xdnf --qf '%{name}' --whatrequires '$p' --arch=src ; $xdnf --qf '%{name}' --whatrequires '$p'; } | grep '^rubygem\-' | sort -u | xargs -r $xdnf --qf '%{source_name}' | grep -v '^(none)' | sort -u | grep '^rubygem\-'" \
+    | xargs -ri bash -c "grep '^{}$' <<< \"$mine\"" \
     | tee -a /dev/stderr \
     | sort -uR \
-    | xargs -i bash -c "
+    | xargs -ri bash -c "
         echo; echo
         set -e
         [[ -d '{}' ]] || fedpkg co '{}'
@@ -88,7 +104,7 @@ while [[ -n "$1" ]]; do
         gith | colordiff
         gitl -2 | colordiff
         echo '$l'
-        [[ -z '${NOBUILD}' ]] && ~/lpcsf-new/test/scripts/pkgs/bld.sh
+        [[ -z '${NOBUILD}' ]] && ~/lpcsf-new/test/scripts/pkgs/bld.sh ${TARGET}
         [[ -z '${NOBUILD}' ]] && echo built > ruby31.status
       "
 
