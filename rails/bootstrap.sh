@@ -18,8 +18,13 @@ grep -r '^%bcond_without bootstrap$' -l \
     rm .built
 
     # Is the remote diff empty, a part from the above change?
-    D=\"\$(git diff \"pvalena/\$gitb | grep '^* ' | cut -d' ' -f2-)\" | grep -vE '^(\+|\-)%bcond_with' | grep -v '^ ' | grep -v '^@@ ' | grep -v '^\-\-\- ' | grep -v '^index ' | grep -v '^diff ' | grep -v '^\+\+\+ ')\"
-    [[ -z \"\${D}\" ]] && git push -f
+    set +e
+    D=\"\$(git diff \"pvalena/\$(gitb | grep '^* ' | cut -d' ' -f2-)\" | grep -vE '^(\+|\-)%bcond_with' | grep -v '^ ' | grep -v '^@@ ' | grep -v '^\-\-\- ' | grep -v '^index ' | grep -v '^diff ' | grep -v '^\+\+\+ ')\"
+    [[ -z \"\${D}\" ]] && {
+      git push -f
+      :
+    } \
+      || echo -e '>> Error: diff not empty:\n' \"\$D\"
   "
 
 exit 0
