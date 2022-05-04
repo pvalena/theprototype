@@ -35,5 +35,7 @@ shift
 COMMENT="$(arg "$1")"
 shift
 
+{ echo ; } 2>/dev/null
+
 curl --negotiate -u: -X POST https://waiverdb.engineering.redhat.com/api/v1.0/waivers/ \
   -d "{\"subject_type\": \"brew-build\", \"subject_identifier\": \"${PACKAGE}\", \"testcase\": \"${TESTCASE}\", \"waived\": true, \"product_version\": \"rhel-${EL}\", \"comment\": \"${COMMENT}\"}"
