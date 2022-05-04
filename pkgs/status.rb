@@ -98,7 +98,7 @@ def main (i = false, rmfile = false)
         end
       end
 
-      ps qnt.last(100),
+      ps qnt.last(200),
         '>> '+ logf + ": " + stat + E + '  '+ U + bnr
 
       binding.irb
