@@ -51,6 +51,8 @@ x="${2}"
 [[ -n "$x" ]] || x='fedora-rawhide-x86_64'
 
 l="`readlink -f "../copr-r8-${n}"`"
+ll="`readlink -f "../../copr-r8-${n}"`"
+[[ -d "$ll" ]] && l="$ll"
 [[ -d "$l" ]] || {
   [[ -n "$NEW" ]] && mkdir -p "$l"
 
