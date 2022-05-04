@@ -1,12 +1,18 @@
 #!/usr/bin/bash
 #
-# ./rebuild.sh [-c][-n][-s] TARGET [SOURCE_BRANCH [DESTINATION_BRANCH]]
+# ./rebuild.sh [-c][-n][-s][-t] TARGET [SOURCE_BRANCH [DESTINATION_BRANCH]]
 #
 #   -c  Skip setting up repositories, create only "bootstrap" folders.
 #       This is more reliable than builtin '.continue' locking mechanism.
+#
 #   -f  Force. Force builds. No check for pending commit (have you pushed by mistake?).
+#
 #   -l  Only local changes (no push, does not build).
-#   -s  Skip modifications (like a merge from different branch); run builds right away.
+#
+#   -s  Skip all modifications (like a merge from different branch); run builds right away.
+#
+#   -t  Create side-tag if not supplied
+#
 #   -y  AssumeYes (don't ask, accept everything).
 #
 
@@ -49,11 +55,11 @@ TT=18
 [[ '-f' == "$1" ]] && { F="$1" ; shift ; } || F=
 [[ '-l' == "$1" ]] && { L="$1" ; shift ; } || L=
 [[ '-s' == "$1" ]] && { S="$1" ; shift ; } || S=
+[[ '-t' == "$1" ]] && { T="$1" ; shift ; } || T=
 [[ '-y' == "$1" ]] && { Y="$1" ; shift ; } || Y=
 
 TG="$1"
 shift
-[[ -z "$TG" ]] && die "Target (sidetag) missing: $TG"
 
 SB="${1:-pvalena/rebase}"
 shift
@@ -62,6 +68,20 @@ DB="${1:-origin/rawhide}"
 shift
 
 [[ -z "$1" ]] || die "Unknown arg: $1"
+
+[[ -z "$TG" ]] && {
+  [[ -n "$T" ]] || die "Target (sidetag) missing."
+
+  set -x
+
+  pushd rubygem-rails
+    TG="$(fedpkg --release $(echo "$DB" | cut -d'/' -f2) request-side-tag)"
+    echo "$TG"
+  popd
+
+  TG="$(echo "$TG" | grep "^Side tag '" | grep ' created\.$' | cut -d"'" -f2)"
+  [[ -n "$TG" ]] || die "Failed to create sidetag."
+}
 
 # fedora NR
 FX="$(cut -d'-' -f1 <<< "$TG" | grep -E 'f[0-9]*' | cut -d'f' -f2- | grep -E '^[0-9]*$')"
