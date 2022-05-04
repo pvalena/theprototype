@@ -27,8 +27,10 @@
 #
 #   -c      Do not remove Sources (*.txz) and SRPM, and '.built' file.
 #
-#   -f      Fedora version to operator on, e.g. `35`.
-#           Used for branch names suffix to handle upgrade on as well as source repository.
+#   -f      Fedora version to operate on, e.g. `35`.
+#           !!! Used for branch names suffix to handle upgrade on as well as source repository. !!!
+#
+#   -m      Preserve current modifications.
 #
 #   -n      Do not abort on upgrade error (also passed to coprbld.sh).
 #
@@ -36,6 +38,9 @@
 #
 #   -w S    Time to wait (passed to coprbld) after an upgrade. (Default: 30)
 #           For availability in COPR repo.
+#
+#
+# Note:     Options need to be specified in alpabetical order.
 #
 
 set -e
@@ -80,8 +85,6 @@ set +e
   rm */.built
   rm */.prepared
   rm */.continue
-  rm */*.txz
-  rm */*.src.rpm
 }
 
 BRA='rebase'
@@ -92,6 +95,12 @@ FED=''
   shift 2
   :
 } || FED=''
+
+[[ "$1" == '-m' ]] && {
+  MOD="$1"
+  shift
+  :
+} || MOD=
 
 [[ "$1" == '-n' ]] && {
   BREAK=
@@ -157,7 +166,7 @@ while read x; do
 
   cp -n ../rubygem-activesupport/rails-*-tools.txz .
 
-  bash -c "set -x; $GUP -b ${CRR} $CON ${FED} $PRE -j -r ${V} -x -y" && {
+  bash -c "set -x; $GUP -b ${CRR} ${CON} ${PRE} ${FED} -j ${MOD} -r ${V} -x -y" && {
     touch .prepared
     :
   } || {
@@ -168,6 +177,11 @@ while read x; do
 
   M="$(cat .git/COMMIT_EDITMSG | grep -v '^#')"
   git commit -a --amend -m "$M"
+
+  bash -c "
+      D=\"\$(git diff \"pvalena/\$(gitb | grep '^* ' | cut -d' ' -f2-)\" | grep -vE '^(\+|\-)%bcond_with' | grep -v '^ ' | grep -v '^@@ ' | grep -v '^\-\-\- ' | grep -v '^index ' | grep -v '^diff ' | grep -v '^\+\+\+ ')\"
+      [[ -z \"\${D}\" ]] && git push -f
+    "
 
   { set +x; } &>/dev/null
 done <<EOLX
@@ -202,7 +216,7 @@ $BOT
 
 status
 
-$CRB $n -w "$W" "$CRR"
+$CRB -n -w "$W" "$CRR"
 
 mar="$mar -r fedora-rails-x86_64"
 $TST
