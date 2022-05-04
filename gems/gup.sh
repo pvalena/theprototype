@@ -3,7 +3,7 @@
 bash -n "$0" || exit 1
 
 # const
-CLEAN_EXT="tgz gem gz xz tar bz2 rpm"
+CLEAN_EXT="tgz txz gem gz xz tar bz2 rpm"
 ME='pvalena'
 REM='rebase'
 ORG='origin'
@@ -99,8 +99,10 @@ ask () {
 	:
 } || COP='rubygems'
 
+MOD="-m"
 [[ "$1" == "-c" ]] && {
   CON="$1"
+  MOD=
 	shift
 	:
 } || CON=
@@ -131,6 +133,13 @@ ask () {
 	:
 } || KOJ=y
 
+[[ "$1" == "-m" ]] && {
+  MOD="$1"
+  CON="-c"
+	shift
+	:
+} || MOD="${MOD:-}"
+
 [[ "$1" == "-p" ]] && {
 	PKG="$2"
 	shift 2
@@ -146,6 +155,7 @@ ask () {
 [[ "$1" == "-s" ]] && {
 	SKI="$1"
 	CON="-c"
+	MOD=
 	shift
 	:
 } || SKI=
@@ -204,7 +214,7 @@ ask () {
 grep -q "^$PRE" <<< "$PKG" || die "Couldn't autodetect package name: '$PKG'"
 
 # set remote
-[[ -n "$CON" ]] || {
+[[ -z "$MOD" ]] || {
   bash -c "git fetch '$ORG' $SIL" || die "Failed to git fetch" "$ORG"
   bash -c "git fetch '$ME' $SIL" || {
     bash -c "$FRK '$PKG' $SIL"
@@ -250,7 +260,7 @@ nam="`rpmspec -q --qf '%{NAME}\n' "$X" | head -1`"
 
 nam="`cut -d'-' -f2- <<< "$nam"`"
 
-[[ -n "$CON" ]] || {
+[[ -z "$MOD" ]] || {
   # old srpm
   bash -c "fedpkg --release $REL sources $SIL"
   srpm old
@@ -272,7 +282,7 @@ nam="`cut -d'-' -f2- <<< "$nam"`"
 }
 
 # new
-[[ -n "$CON" ]] || rm *.gem ||:
+[[ -z "$MOD" ]] || rm *.gem ||:
 bash -c "gem fetch $PRF '$nam' '$ver' $SIL" || die "gem fetch $prf failed"
 
 f="$(basename -s '.gem' "`ls *.gem | tail -n -1`")"
@@ -285,7 +295,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
 
 [[ "$ver" == "$xv" ]] || die "Version check failed: '$ver' vs '$xv'"
 
-[[ -n "$CON" ]] || {
+[[ -z "$MOD" ]] || {
   [[ "$ver" == "$ov" ]] && {
     warn "Version is current" "$ver"
     exit 2
@@ -296,7 +306,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   prever=".`rev <<< "$ver" | cut -d'.' -f1 | rev`"
   ver="`rev <<< "$ver" | cut -d'.' -f2- | rev`"
 
-  [[ -n "$CON" ]] || {
+  [[ -z "$MOD" ]] || {
     grep -qE '^[#%]*%global prerelease' "$X" && {
       sed -i "s/^[#%]*\(%global prerelease\).*$/\1 $prever/" "$X"
       :
@@ -310,7 +320,7 @@ xv="`rev <<< "$f" | cut -d'-' -f1 | rev`"
   :
 } || {
   prever=
-  [[ -n "$CON" ]] \
+  [[ -z "$MOD" ]] \
     || sed -i "s/^[#%]*\(%global prerelease\).*$/#%\1 /" "$X"
 }
 echo
@@ -326,7 +336,7 @@ B="$($BUG "$PKG")"
 M="Update to $nam ${ver}${prever}."
 gcom="git|cd|tar|wget|curl"
 
-[[ -n "$CON" ]] || {
+[[ -z "$MOD" ]] || {
   c="rpmdev-bumpspec -D -c '$M$R'"
 
   bash -c "set -x; $c -n '$ver' '$X'" || {
@@ -399,8 +409,8 @@ echo
 #}
 
 # compare
-[[ -z "$CON" ]] && {
-  warn "Please check the gem compare output bellow"
+warn "Please check the gem compare output bellow"
+[[ -n "$MOD" ]] && {
   gem compare -bk "$nam" "$ov" "$ver$prever"
   :
 } || {
