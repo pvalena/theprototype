@@ -138,6 +138,12 @@ kl="$me@FEDORAPROJECT\.ORG"
   shift
 }
 
+[[ "$1" == '-i' ]] && {
+  IG="$1"
+  shift
+  :
+} || IG=
+
 [[ "$1" == '-k' ]] && {
   KJ="$2"
   shift 2
@@ -212,7 +218,9 @@ grep "^$gp" <<< "$p" &>/dev/null || abort "Invalid prefix in '$p', expected: $gp
     #done
 
     git remote add "${tb}" "https://copr-dist-git.fedorainfracloud.org/cgit/$me/$mc/$p.git"
-    gitf "$tb" || abort "Failed to fetch: $tb"
+    gitf "$tb" || {
+      [[ -n "$IG" ]] || abort "Failed to fetch: $tb"
+    }
     gitc "$tb" \
       || gitcb "$tb" -t "$rm"
 
@@ -251,7 +259,9 @@ grep "^$gp" <<< "$p" &>/dev/null || abort "Invalid prefix in '$p', expected: $gp
   [[ -z "$pr" ]] || {
     gitc rawhide || abort 'Failed to checkout rawhide'
     gitb -D "pr$pr" || abort "Failed to delete branch pr$pr"
-    git fetch origin "refs/pull/$pr/head:pr$pr" || abort "Failed to fetch: origin 'refs/pull/$pr/head:pr$pr'"
+    git fetch origin "refs/pull/$pr/head:pr$pr" || {
+      [[ -n "$IG" ]] || abort "Failed to fetch: origin 'refs/pull/$pr/head:pr$pr'"
+    }
     gitc "pr$pr"
 
     [[ "`gitb | grep '^* ' | cut -d' ' -f2-`" == "pr$pr" ]] \
@@ -260,7 +270,9 @@ grep "^$gp" <<< "$p" &>/dev/null || abort "Invalid prefix in '$p', expected: $gp
 
   # Simply fetch latest gem
   # rm *.gem &>/dev/null
-  gem fetch "$g" || abort 'Failed to fetch:'
+  gem fetch "$g" || {
+    [[ -n "$IG" ]] || abort "Failed to fetch: $g"
+  }
 }
 
 ## Testing
